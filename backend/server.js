@@ -5,7 +5,6 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 require('dotenv').config();
 
-
 const app = express();
 
 // Connect to MongoDB
@@ -24,7 +23,17 @@ app.get('/', (req, res) => {
   res.json({ message: 'Auto Meter API is running!' });
 });
 
+// Health check route
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+// Updated to bind to all interfaces for Render
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
