@@ -20,7 +20,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  bool _isCheckingLoginStatus = true;
 
   @override
   void initState() {
@@ -47,7 +46,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     _animationController.forward();
   }
 
-  // Check if user is already logged in
+  // Check if user is already logged in (silent check)
   Future<void> _checkLoginStatus() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -58,36 +57,29 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
       if (isLoggedIn && phoneNumber.isNotEmpty) {
         // User is already logged in, navigate to appropriate page
-        await Future.delayed(Duration(milliseconds: 1500)); // Show splash for smooth transition
-        
-        if (userType == 'admin') {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => AdminPage()),
-          );
-        } else {
-          // Create user model from stored data
-          final userModel = UserModel(
-            name: userName,
-            phoneNumber: phoneNumber,
-            userType: userType, id: '',
-          );
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => DriverHomePage(user: userModel),
-            ),
-          );
-        }
-      } else {
-        // User is not logged in, show login page
-        setState(() {
-          _isCheckingLoginStatus = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userType == 'admin') {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => AdminPage()),
+            );
+          } else {
+            // Create user model from stored data
+            final userModel = UserModel(
+              name: userName,
+              phoneNumber: phoneNumber,
+              userType: userType,
+              id: '',
+            );
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => DriverHomePage(user: userModel),
+              ),
+            );
+          }
         });
       }
     } catch (e) {
       print('Error checking login status: $e');
-      setState(() {
-        _isCheckingLoginStatus = false;
-      });
     }
   }
 
@@ -159,75 +151,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    // Show loading screen while checking login status
-    if (_isCheckingLoginStatus) {
-      return Scaffold(
-        backgroundColor: Colors.grey[50],
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo with animation
-              Hero(
-                tag: 'app_logo',
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.amber.withOpacity(0.2),
-                        spreadRadius: 5,
-                        blurRadius: 15,
-                        offset: Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.amber[600]!, Colors.amber[400]!],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Icon(
-                            Icons.directions_car,
-                            size: 60,
-                            color: Colors.white,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 30),
-              CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.amber[600]!),
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Checking login status...',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: BlocConsumer<AuthBloc, AuthState>(
