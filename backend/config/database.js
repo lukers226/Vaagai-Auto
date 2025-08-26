@@ -5,7 +5,8 @@ const connectDB = async () => {
     const mongoURI = process.env.MONGODB_URI;
     
     if (!mongoURI) {
-      throw new Error('MONGODB_URI environment variable is not set');
+      console.error('❌ MONGODB_URI environment variable is not set');
+      process.exit(1);
     }
     
     console.log('Attempting to connect to MongoDB Atlas...');
@@ -13,11 +14,12 @@ const connectDB = async () => {
     await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 seconds
-      socketTimeoutMS: 45000, // 45 seconds
-      bufferMaxEntries: 0,
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
       maxPoolSize: 10,
-      retryWrites: true,
+      // Removed ALL deprecated options:
+      // - bufferMaxEntries (this was causing the error)
+      // - retryWrites (already in connection string)
     });
     
     console.log('✅ MongoDB Atlas connected successfully');
@@ -38,13 +40,6 @@ mongoose.connection.on('error', (err) => {
 
 mongoose.connection.on('disconnected', () => {
   console.log('📡 Mongoose disconnected from MongoDB Atlas');
-});
-
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  await mongoose.connection.close();
-  console.log('🛑 MongoDB connection closed due to app termination');
-  process.exit(0);
 });
 
 module.exports = connectDB;
