@@ -12,11 +12,25 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    // DEBUG: Print the JSON being parsed
+    print('UserModel.fromJson - Raw JSON: $json');
+    
+    String parsedId = json['_id'] ?? '';
+    String parsedPhone = json['phoneNumber'] ?? '';
+    String parsedType = json['userType'] ?? '';
+    String? parsedName = json['name'];
+    
+    print('UserModel.fromJson - Parsed Values:');
+    print('  ID: "$parsedId" (length: ${parsedId.length})');
+    print('  Phone: "$parsedPhone"');
+    print('  Type: "$parsedType"');
+    print('  Name: "$parsedName"');
+    
     return UserModel(
-      id: json['_id'] ?? '',
-      phoneNumber: json['phoneNumber'] ?? '',
-      userType: json['userType'] ?? '',
-      name: json['name'],
+      id: parsedId,
+      phoneNumber: parsedPhone,
+      userType: parsedType,
+      name: parsedName,
     );
   }
 
@@ -27,5 +41,10 @@ class UserModel {
       'userType': userType,
       'name': name,
     };
+  }
+
+  @override
+  String toString() {
+    return 'UserModel(id: $id, phoneNumber: $phoneNumber, userType: $userType, name: $name)';
   }
 }

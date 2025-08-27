@@ -7,8 +7,9 @@ const cancelRide = async (req, res) => {
     
     console.log('Cancelling ride for user:', userId);
     
-    const updatedDriver = await Driver.findByIdAndUpdate(
-      userId,
+    // FIXED: Look for driver by userId field, not by _id
+    const updatedDriver = await Driver.findOneAndUpdate(
+      { userId: userId }, // CHANGED: Search by userId field instead of _id
       { 
         $inc: { cancelledRides: 1 },
         updatedAt: new Date()
@@ -17,9 +18,10 @@ const cancelRide = async (req, res) => {
     );
     
     if (!updatedDriver) {
+      console.log('Driver not found with userId:', userId);
       return res.status(404).json({ 
         success: false,
-        error: 'Driver not found' 
+        error: 'Driver record not found for this user' 
       });
     }
     
@@ -61,8 +63,9 @@ const completeRide = async (req, res) => {
     
     console.log('Completing ride for user:', userId, 'with earnings:', rideEarnings);
     
-    const updatedDriver = await Driver.findByIdAndUpdate(
-      userId,
+    // FIXED: Look for driver by userId field, not by _id
+    const updatedDriver = await Driver.findOneAndUpdate(
+      { userId: userId }, // CHANGED: Search by userId field instead of _id
       { 
         $inc: { 
           completedRides: 1,
@@ -77,9 +80,10 @@ const completeRide = async (req, res) => {
     );
     
     if (!updatedDriver) {
+      console.log('Driver not found with userId:', userId);
       return res.status(404).json({ 
         success: false,
-        error: 'Driver not found' 
+        error: 'Driver record not found for this user' 
       });
     }
     
@@ -94,7 +98,7 @@ const completeRide = async (req, res) => {
       // Uncomment these lines if you want to save detailed trip data:
       // const Trip = require('../models/Trip');
       // const trip = new Trip({
-      //   driverId: userId,
+      //   driverId: updatedDriver._id,
       //   ...tripData
       // });
       // await trip.save();
@@ -147,12 +151,14 @@ const getDriverStats = async (req, res) => {
     
     console.log('Getting stats for user:', userId);
     
-    const driver = await Driver.findById(userId);
+    // FIXED: Look for driver by userId field, not by _id
+    const driver = await Driver.findOne({ userId: userId }); // CHANGED: Search by userId field instead of _id
     
     if (!driver) {
+      console.log('Driver not found with userId:', userId);
       return res.status(404).json({ 
         success: false,
-        error: 'Driver not found' 
+        error: 'Driver record not found for this user' 
       });
     }
     

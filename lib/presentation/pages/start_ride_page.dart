@@ -37,6 +37,13 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   void initState() {
     super.initState();
     
+    // DEBUG: Print user information
+    print('StartRidePage - User Info:');
+    print('User ID: ${widget.user.id}');
+    print('User Name: ${widget.user.name}');
+    print('User Phone: ${widget.user.phoneNumber}');
+    print('User Type: ${widget.user.userType}');
+    
     // Initialize controllers
     _rideController = RideController();
     _widgets = RideWidgets(context);
@@ -213,7 +220,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  // UPDATED: Cancel ride with database update using your ApiService
+  // FIXED: Cancel ride with proper user ID validation
   void _cancelRideAndRedirect() async {
     _rideController.cancelRide();
     
@@ -221,14 +228,35 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     _showSnackBar('Updating database...', true);
     
     try {
-      // Use the UserModel's id field directly
+      // Get user ID with detailed debugging
       String userId = widget.user.id;
       
-      if (userId.isEmpty) {
-        _showSnackBar('Ride cancelled but user ID not found', false);
+      print('DEBUG Cancel Ride:');
+      print('Raw User ID: "$userId"');
+      print('User ID Length: ${userId.length}');
+      print('User ID isEmpty: ${userId.isEmpty}');
+      print('User Name: ${widget.user.name}');
+      print('User Phone: ${widget.user.phoneNumber}');
+      
+      // Validate user ID
+      if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
+        print('ERROR: Invalid user ID detected');
+        _showSnackBar('Error: User session invalid. Please login again.', false);
+        Navigator.of(context).pop();
+        // Optionally navigate back to login screen
+        // Navigator.of(context).pushReplacementNamed('/login');
+        return;
+      }
+
+      // Additional validation for MongoDB ObjectId format
+      if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
+        print('ERROR: User ID is not a valid MongoDB ObjectId format');
+        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
         Navigator.of(context).pop();
         return;
       }
+
+      print('SUCCESS: User ID validation passed, calling API...');
 
       // Update cancelled rides in database using your existing ApiService
       bool success = await _apiService.updateCancelledRides(userId);
@@ -267,7 +295,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  // UPDATED: Handle complete ride with database update using your ApiService
+  // FIXED: Handle complete ride with proper user ID validation
   Future<void> _handleCompleteRide() async {
     Navigator.of(context).pop(); // Close trip summary
     
@@ -275,16 +303,35 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     _showSnackBar('Updating earnings...', true);
     
     try {
-      // Use the UserModel's id field directly
+      // Get user ID with detailed debugging
       String userId = widget.user.id;
       
-      if (userId.isEmpty) {
-        _showSnackBar('Trip completed but user ID not found', false);
+      print('DEBUG Complete Ride:');
+      print('Raw User ID: "$userId"');
+      print('User ID Length: ${userId.length}');
+      print('User ID isEmpty: ${userId.isEmpty}');
+      print('User Name: ${widget.user.name}');
+      print('User Phone: ${widget.user.phoneNumber}');
+      
+      // Validate user ID
+      if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
+        print('ERROR: Invalid user ID detected');
+        _showSnackBar('Error: User session invalid. Please login again.', false);
+        Navigator.of(context).pop();
+        return;
+      }
+
+      // Additional validation for MongoDB ObjectId format
+      if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
+        print('ERROR: User ID is not a valid MongoDB ObjectId format');
+        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
         Navigator.of(context).pop();
         return;
       }
 
       double rideEarnings = _rideController.totalFare;
+      
+      print('SUCCESS: User ID validation passed, ride earnings: $rideEarnings');
       
       // Create trip data object
       Map<String, dynamic> tripData = {
@@ -297,6 +344,8 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         'endTime': _rideController.getTripEndTime(),
         'completedAt': DateTime.now().toIso8601String(),
       };
+      
+      print('Trip data: ${tripData.toString()}');
       
       // Update database using your existing ApiService
       bool success = await _apiService.updateCompletedRide(
