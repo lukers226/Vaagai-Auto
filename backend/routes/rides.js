@@ -2,7 +2,8 @@ const express = require('express');
 const { 
   cancelRide, 
   completeRide, 
-  getDriverStats 
+  getDriverStats,
+  debugDriverRecords 
 } = require('../controllers/rideController');
 const { 
   validateRideCompletion,
@@ -19,13 +20,16 @@ router.use((req, res, next) => {
   next();
 });
 
-// Cancel ride endpoint - PATCH /:userId/cancel-ride
+// Cancel ride endpoint
 router.patch('/:userId/cancel-ride', validateUserId, cancelRide);
 
-// Complete ride endpoint - PATCH /:userId/complete-ride
+// Complete ride endpoint
 router.patch('/:userId/complete-ride', validateUserId, validateRideCompletion, completeRide);
 
-// Get driver stats endpoint - GET /:userId/stats
+// Get driver stats endpoint
 router.get('/:userId/stats', validateUserId, getDriverStats);
+
+// DEBUG: Check driver records (remove in production)
+router.get('/:userId/debug', debugDriverRecords);
 
 module.exports = router;
