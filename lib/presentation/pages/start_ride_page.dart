@@ -26,6 +26,9 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   final ScreenshotController _screenshotController = ScreenshotController();
   final ApiService _apiService = ApiService();
 
+  // Add this flag to track widget state
+  bool _isDisposed = false;
+
   // Animations
   late AnimationController _pulseController;
   late AnimationController _slideController;
@@ -85,15 +88,16 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   }
 
   void _onLocationUpdate() {
-    if (mounted) setState(() {});
+    if (mounted && !_isDisposed) setState(() {});
   }
 
   void _onStatusChange() {
-    if (mounted) setState(() {});
+    if (mounted && !_isDisposed) setState(() {});
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _pulseController.dispose();
     _slideController.dispose();
     _rideController.dispose();
@@ -101,7 +105,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   }
 
   void _showSnackBar(String message, bool isSuccess) {
-    if (!mounted) return;
+    if (!mounted || _isDisposed) return;
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -125,18 +129,22 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   }
 
   Future<void> _startRide() async {
+    if (!mounted || _isDisposed) return;
     bool success = await _rideController.startRide();
-    if (success) {
+    if (success && mounted && !_isDisposed) {
       _showSnackBar('Ride started successfully!', true);
     }
   }
 
   void _endRide() {
+    if (!mounted || _isDisposed) return;
     _rideController.stopRide();
     _showTripSummary();
   }
 
   void _showCancelRideConfirmation() {
+    if (!mounted || _isDisposed) return;
+    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -184,7 +192,11 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          if (mounted && !_isDisposed) {
+                            Navigator.pop(context);
+                          }
+                        },
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: Colors.grey[300]!),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -197,8 +209,10 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.pop(context);
-                          _cancelRideAndRedirect();
+                          if (mounted && !_isDisposed) {
+                            Navigator.pop(context);
+                            _cancelRideAndRedirect();
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red[600],
@@ -220,16 +234,15 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  // FIXED: Cancel ride with proper user ID validation
-  void _cancelRideAndRedirect() async {
-    _rideController.cancelRide();
+  // FIXED: Cancel ride with proper mounted checks and API route
+  Future<void> _cancelRideAndRedirect() async {
+    if (!mounted || _isDisposed) return;
     
-    // Show loading indicator
-    _showSnackBar('Updating database...', true);
+    _rideController.cancelRide();
     
     try {
       // Get user ID with detailed debugging
-      String userId = widget.user.id;
+      String userId = widget.user.id ?? '';
       
       print('DEBUG Cancel Ride:');
       print('Raw User ID: "$userId"');
@@ -241,25 +254,34 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       // Validate user ID
       if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
         print('ERROR: Invalid user ID detected');
-        _showSnackBar('Error: User session invalid. Please login again.', false);
-        Navigator.of(context).pop();
-        // Optionally navigate back to login screen
-        // Navigator.of(context).pushReplacementNamed('/login');
+        if (mounted && !_isDisposed) {
+          _showSnackBar('Error: User session invalid. Please login again.', false);
+          Navigator.of(context).pop();
+        }
         return;
       }
 
       // Additional validation for MongoDB ObjectId format
       if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
         print('ERROR: User ID is not a valid MongoDB ObjectId format');
-        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
-        Navigator.of(context).pop();
+        if (mounted && !_isDisposed) {
+          _showSnackBar('Error: Invalid user ID format. Please login again.', false);
+          Navigator.of(context).pop();
+        }
         return;
       }
 
       print('SUCCESS: User ID validation passed, calling API...');
 
-      // Update cancelled rides in database using your existing ApiService
+      // Show loading
+      if (mounted && !_isDisposed) {
+        _showSnackBar('Updating database...', true);
+      }
+
+      // Update cancelled rides in database using correct API route
       bool success = await _apiService.updateCancelledRides(userId);
+      
+      if (!mounted || _isDisposed) return;
       
       if (success) {
         Navigator.of(context).pop();
@@ -270,12 +292,16 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       }
     } catch (e) {
       print('Cancel ride error: $e');
-      _showSnackBar('Ride cancelled but database error occurred', false);
-      Navigator.of(context).pop();
+      if (mounted && !_isDisposed) {
+        _showSnackBar('Ride cancelled but database error occurred', false);
+        Navigator.of(context).pop();
+      }
     }
   }
 
   void _showTripSummary() {
+    if (!mounted || _isDisposed) return;
+    
     _widgets.showTripSummary(
       context: context,
       distance: _rideController.formatDistance(),
@@ -287,24 +313,25 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       tripStartTime: _rideController.getTripStartTime(),
       tripEndTime: _rideController.getTripEndTime(),
       onContinue: () {
-        Navigator.of(context).pop();
-        if (_rideController.isMeterOn) _rideController.resumeRide();
+        if (mounted && !_isDisposed) {
+          Navigator.of(context).pop();
+          if (_rideController.isMeterOn) _rideController.resumeRide();
+        }
       },
       onComplete: _handleCompleteRide,
       onShareCustomer: _showCustomerPhoneInput,
     );
   }
 
-  // FIXED: Handle complete ride with proper user ID validation
+  // FIXED: Handle complete ride with proper mounted checks
   Future<void> _handleCompleteRide() async {
-    Navigator.of(context).pop(); // Close trip summary
+    if (!mounted || _isDisposed) return;
     
-    // Show loading indicator
-    _showSnackBar('Updating earnings...', true);
+    Navigator.of(context).pop(); // Close trip summary
     
     try {
       // Get user ID with detailed debugging
-      String userId = widget.user.id;
+      String userId = widget.user.id ?? '';
       
       print('DEBUG Complete Ride:');
       print('Raw User ID: "$userId"');
@@ -316,22 +343,31 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       // Validate user ID
       if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
         print('ERROR: Invalid user ID detected');
-        _showSnackBar('Error: User session invalid. Please login again.', false);
-        Navigator.of(context).pop();
+        if (mounted && !_isDisposed) {
+          _showSnackBar('Error: User session invalid. Please login again.', false);
+          Navigator.of(context).pop();
+        }
         return;
       }
 
       // Additional validation for MongoDB ObjectId format
       if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
         print('ERROR: User ID is not a valid MongoDB ObjectId format');
-        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
-        Navigator.of(context).pop();
+        if (mounted && !_isDisposed) {
+          _showSnackBar('Error: Invalid user ID format. Please login again.', false);
+          Navigator.of(context).pop();
+        }
         return;
       }
 
       double rideEarnings = _rideController.totalFare;
       
       print('SUCCESS: User ID validation passed, ride earnings: $rideEarnings');
+      
+      // Show loading
+      if (mounted && !_isDisposed) {
+        _showSnackBar('Updating earnings...', true);
+      }
       
       // Create trip data object
       Map<String, dynamic> tripData = {
@@ -354,6 +390,8 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         tripData: tripData,
       );
       
+      if (!mounted || _isDisposed) return;
+      
       if (success) {
         Navigator.of(context).pop(); // Go back to previous screen
         _showSnackBar('Trip completed! Earnings updated: ₹${rideEarnings.toStringAsFixed(2)}', true);
@@ -363,13 +401,17 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       }
     } catch (e) {
       print('Complete ride error: $e');
-      _showSnackBar('Trip completed but database error occurred', false);
-      Navigator.of(context).pop();
+      if (mounted && !_isDisposed) {
+        _showSnackBar('Trip completed but database error occurred', false);
+        Navigator.of(context).pop();
+      }
     }
   }
 
-  // Rest of your methods remain the same...
+  // Rest of your methods remain the same but add mounted checks...
   void _showCustomerPhoneInput() {
+    if (!mounted || _isDisposed) return;
+    
     final TextEditingController phoneController = TextEditingController();
     
     showDialog(
@@ -474,6 +516,8 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   }
 
   Future<void> _generateAndShareBillImage(String phoneNumber) async {
+    if (!mounted || _isDisposed) return;
+    
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -534,7 +578,9 @@ Thank you for choosing Vaagai Auto! 🙏''';
         subject: 'Vaagai Auto - Trip Receipt',
       );
       
-      _showSnackBar('Bill shared successfully!', true);
+      if (mounted && !_isDisposed) {
+        _showSnackBar('Bill shared successfully!', true);
+      }
       
       Timer(Duration(minutes: 2), () async {
         try {
@@ -548,10 +594,13 @@ Thank you for choosing Vaagai Auto! 🙏''';
       
     } catch (e) {
       print('Bill generation error: $e');
-      _showSnackBar('Failed to generate bill. Please try again.', false);
+      if (mounted && !_isDisposed) {
+        _showSnackBar('Failed to generate bill. Please try again.', false);
+      }
     }
   }
 
+  // Keep your existing _buildUltraCompactBillWidget and _buildMicroBillRow methods as they are...
   Widget _buildUltraCompactBillWidget() {
     final DateTime now = DateTime.now();
     final String receiptId = 'VA${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
@@ -825,7 +874,11 @@ Thank you for choosing Vaagai Auto! 🙏''';
           children: [
             _widgets.buildHeader(
               title: 'Vaagai Auto',
-              onBackPressed: () => Navigator.pop(context),
+              onBackPressed: () {
+                if (mounted && !_isDisposed) {
+                  Navigator.pop(context);
+                }
+              },
               showCancelRide: true,
               onCancelRide: _showCancelRideConfirmation,
             ),
@@ -878,7 +931,9 @@ Thank you for choosing Vaagai Auto! 🙏''';
       onEndRide: _endRide,
       onWaitingTimeChanged: (int newValue) {
         _rideController.updateSelectedWaitingTime(newValue);
-        setState(() {});
+        if (mounted && !_isDisposed) {
+          setState(() {});
+        }
       },
     );
   }
