@@ -4,6 +4,7 @@ const mongoose = require('mongoose'); // Added this import
 const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const rideRoutes = require('./routes/rides'); // NEW: Add ride routes
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/drivers', rideRoutes); // NEW: Add ride management routes
 
 // Default route
 app.get('/', (req, res) => {

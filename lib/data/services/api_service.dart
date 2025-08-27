@@ -152,6 +152,179 @@ class ApiService {
     return [];
   }
 
+  // NEW: Update cancelled rides count
+  Future<bool> updateCancelledRides(String userId) async {
+    print('Updating cancelled rides for user: $userId');
+    
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          print('Retrying cancelled rides update... attempt $attempt');
+          await Future.delayed(Duration(seconds: 3));
+        }
+        
+        final response = await http.patch(
+          Uri.parse('${ApiConstants.baseUrl}/drivers/$userId/cancel-ride'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ).timeout(_timeout);
+
+        print('Cancel ride response status: ${response.statusCode}');
+        print('Cancel ride response body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          print('Cancelled rides updated successfully');
+          return true;
+        } else {
+          throw Exception('Server returned ${response.statusCode}');
+        }
+        
+      } on TimeoutException catch (e) {
+        print('TimeoutException on cancelled rides update attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Connection timeout while updating cancelled rides');
+        }
+        continue;
+        
+      } on SocketException catch (e) {
+        print('SocketException on cancelled rides update: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Cannot connect to server for cancelled rides update');
+        }
+        continue;
+        
+      } catch (e) {
+        print('Error updating cancelled rides on attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Failed to update cancelled rides: $e');
+        }
+        continue;
+      }
+    }
+    
+    return false;
+  }
+
+  // NEW: Update completed rides and total earnings
+  Future<bool> updateCompletedRide({
+    required String userId,
+    required double rideEarnings,
+    required Map<String, dynamic> tripData,
+  }) async {
+    print('Updating completed ride for user: $userId with earnings: $rideEarnings');
+    
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          print('Retrying completed ride update... attempt $attempt');
+          await Future.delayed(Duration(seconds: 3));
+        }
+        
+        final response = await http.patch(
+          Uri.parse('${ApiConstants.baseUrl}/drivers/$userId/complete-ride'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'rideEarnings': rideEarnings,
+            'tripData': tripData,
+          }),
+        ).timeout(_timeout);
+
+        print('Complete ride response status: ${response.statusCode}');
+        print('Complete ride response body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          print('Completed ride updated successfully');
+          return true;
+        } else {
+          throw Exception('Server returned ${response.statusCode}');
+        }
+        
+      } on TimeoutException catch (e) {
+        print('TimeoutException on completed ride update attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Connection timeout while updating completed ride');
+        }
+        continue;
+        
+      } on SocketException catch (e) {
+        print('SocketException on completed ride update: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Cannot connect to server for completed ride update');
+        }
+        continue;
+        
+      } catch (e) {
+        print('Error updating completed ride on attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Failed to update completed ride: $e');
+        }
+        continue;
+      }
+    }
+    
+    return false;
+  }
+
+  // NEW: Get updated driver stats
+  Future<Map<String, dynamic>?> getDriverStats(String userId) async {
+    print('Getting driver stats for user: $userId');
+    
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          print('Retrying get driver stats... attempt $attempt');
+          await Future.delayed(Duration(seconds: 3));
+        }
+        
+        final response = await http.get(
+          Uri.parse('${ApiConstants.baseUrl}/drivers/$userId/stats'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ).timeout(_timeout);
+
+        print('Driver stats response status: ${response.statusCode}');
+        print('Driver stats response body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return data['data'];
+        } else {
+          throw Exception('Server returned ${response.statusCode}');
+        }
+        
+      } on TimeoutException catch (e) {
+        print('TimeoutException on get driver stats attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Connection timeout while getting driver stats');
+        }
+        continue;
+        
+      } on SocketException catch (e) {
+        print('SocketException on get driver stats: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Cannot connect to server for driver stats');
+        }
+        continue;
+        
+      } catch (e) {
+        print('Error getting driver stats on attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Failed to get driver stats: $e');
+        }
+        continue;
+      }
+    }
+    
+    return null;
+  }
+
   // Health check to wake up server
   Future<bool> healthCheck() async {
     try {

@@ -10,7 +10,7 @@ const driverSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    match: /^[0-9]{10}$/
+    trim: true
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -40,9 +40,17 @@ const driverSchema = new mongoose.Schema({
   completedRides: {
     type: Number,
     default: 0
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 }, {
-  timestamps: true
+  timestamps: true // This automatically manages createdAt and updatedAt
 });
 
 module.exports = mongoose.model('Driver', driverSchema);

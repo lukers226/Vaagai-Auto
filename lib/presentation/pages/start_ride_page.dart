@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:vaagaiauto/presentation/widgets/ride_widgets.dart';
+import 'package:vaagaiauto/data/services/api_service.dart';
 import '../../data/models/user_model.dart';
 import 'ride_controller.dart';
 
@@ -23,6 +24,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   late RideController _rideController;
   late RideWidgets _widgets;
   final ScreenshotController _screenshotController = ScreenshotController();
+  final ApiService _apiService = ApiService();
 
   // Animations
   late AnimationController _pulseController;
@@ -211,10 +213,38 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  void _cancelRideAndRedirect() {
+  // UPDATED: Cancel ride with database update using your ApiService
+  void _cancelRideAndRedirect() async {
     _rideController.cancelRide();
-    Navigator.of(context).pop();
-    _showSnackBar('Ride cancelled successfully', true);
+    
+    // Show loading indicator
+    _showSnackBar('Updating database...', true);
+    
+    try {
+      // Use the UserModel's id field directly
+      String userId = widget.user.id;
+      
+      if (userId.isEmpty) {
+        _showSnackBar('Ride cancelled but user ID not found', false);
+        Navigator.of(context).pop();
+        return;
+      }
+
+      // Update cancelled rides in database using your existing ApiService
+      bool success = await _apiService.updateCancelledRides(userId);
+      
+      if (success) {
+        Navigator.of(context).pop();
+        _showSnackBar('Ride cancelled successfully', true);
+      } else {
+        _showSnackBar('Ride cancelled but database update failed', false);
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      print('Cancel ride error: $e');
+      _showSnackBar('Ride cancelled but database error occurred', false);
+      Navigator.of(context).pop();
+    }
   }
 
   void _showTripSummary() {
@@ -232,15 +262,64 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         Navigator.of(context).pop();
         if (_rideController.isMeterOn) _rideController.resumeRide();
       },
-      onComplete: () {
-        Navigator.of(context).pop();
-        Navigator.of(context).pop();
-        _showSnackBar('Trip completed successfully! ₹${_rideController.totalFare.toStringAsFixed(2)}', true);
-      },
+      onComplete: _handleCompleteRide,
       onShareCustomer: _showCustomerPhoneInput,
     );
   }
 
+  // UPDATED: Handle complete ride with database update using your ApiService
+  Future<void> _handleCompleteRide() async {
+    Navigator.of(context).pop(); // Close trip summary
+    
+    // Show loading indicator
+    _showSnackBar('Updating earnings...', true);
+    
+    try {
+      // Use the UserModel's id field directly
+      String userId = widget.user.id;
+      
+      if (userId.isEmpty) {
+        _showSnackBar('Trip completed but user ID not found', false);
+        Navigator.of(context).pop();
+        return;
+      }
+
+      double rideEarnings = _rideController.totalFare;
+      
+      // Create trip data object
+      Map<String, dynamic> tripData = {
+        'distance': _rideController.formatDistance(),
+        'duration': _rideController.formatTime(),
+        'baseFare': _rideController.fare,
+        'waitingCharge': _rideController.waitingCharge,
+        'totalFare': _rideController.totalFare,
+        'startTime': _rideController.getTripStartTime(),
+        'endTime': _rideController.getTripEndTime(),
+        'completedAt': DateTime.now().toIso8601String(),
+      };
+      
+      // Update database using your existing ApiService
+      bool success = await _apiService.updateCompletedRide(
+        userId: userId,
+        rideEarnings: rideEarnings,
+        tripData: tripData,
+      );
+      
+      if (success) {
+        Navigator.of(context).pop(); // Go back to previous screen
+        _showSnackBar('Trip completed! Earnings updated: ₹${rideEarnings.toStringAsFixed(2)}', true);
+      } else {
+        _showSnackBar('Trip completed but database update failed', false);
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      print('Complete ride error: $e');
+      _showSnackBar('Trip completed but database error occurred', false);
+      Navigator.of(context).pop();
+    }
+  }
+
+  // Rest of your methods remain the same...
   void _showCustomerPhoneInput() {
     final TextEditingController phoneController = TextEditingController();
     
@@ -345,7 +424,6 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  // FIXED: Ultra-compact bill generation without overflow
   Future<void> _generateAndShareBillImage(String phoneNumber) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -372,12 +450,11 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         ),
       );
       
-      // Generate with smaller size to avoid overflow
       final Uint8List imageBytes = await _screenshotController.captureFromWidget(
         _buildUltraCompactBillWidget(),
         delay: Duration(milliseconds: 500),
         pixelRatio: 2.0,
-        targetSize: Size(350, 600), // Reduced size
+        targetSize: Size(350, 600),
       );
       
       final tempDir = await getTemporaryDirectory();
@@ -426,7 +503,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
     }
   }
 
-  // FIXED: Ultra-compact bill widget that fits perfectly
   Widget _buildUltraCompactBillWidget() {
     final DateTime now = DateTime.now();
     final String receiptId = 'VA${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
@@ -439,7 +515,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header - Very compact
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
@@ -498,12 +573,10 @@ Thank you for choosing Vaagai Auto! 🙏''';
               ),
             ),
             
-            // Content - Ultra compact
             Container(
               padding: EdgeInsets.all(12),
               child: Column(
                 children: [
-                  // Trip Info - Compact
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(12),
@@ -535,7 +608,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
                   
                   SizedBox(height: 8),
                   
-                  // Fare Section - Compact
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(12),
@@ -567,7 +639,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
                   
                   SizedBox(height: 8),
                   
-                  // Total - Compact
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(12),
@@ -606,7 +677,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
                   
                   SizedBox(height: 8),
                   
-                  // Footer - Very compact
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(10),
@@ -651,7 +721,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
                   
                   SizedBox(height: 6),
                   
-                  // Timestamp - Very small
                   Text(
                     'Generated: ${now.day}/${now.month}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
                     style: GoogleFonts.inter(
@@ -670,7 +739,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
     );
   }
 
-  // Micro bill row for ultra-compact layout
   Widget _buildMicroBillRow(String label, String value) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 2),
