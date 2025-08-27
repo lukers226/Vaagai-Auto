@@ -188,7 +188,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Login Failed',
+                            'Login Failed..Please check network connection',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,

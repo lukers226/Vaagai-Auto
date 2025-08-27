@@ -310,6 +310,77 @@ class ApiService {
     return false;
   }
 
+  // NEW: Get user statistics for profile page
+  Future<Map<String, dynamic>?> getUserStats(String userId) async {
+    print('Getting user stats for user: $userId');
+    
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          print('Retrying get user stats... attempt $attempt');
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+        
+        // Use the same endpoint as getDriverStats but with a different method name for clarity
+        final response = await http.get(
+          Uri.parse('${ApiConstants.baseUrl}/rides/$userId/stats'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ).timeout(_timeout);
+
+        print('User stats response status: ${response.statusCode}');
+        print('User stats response body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['success'] == true) {
+            print('User stats loaded successfully: ${data['data']}');
+            return data['data'];
+          } else {
+            throw Exception('API returned success: false - ${data['error'] ?? 'Unknown error'}');
+          }
+        } else if (response.statusCode == 404) {
+          print('User not found');
+          return null;
+        } else {
+          throw Exception('Server returned ${response.statusCode}');
+        }
+        
+      } on TimeoutException catch (e) {
+        print('TimeoutException on get user stats attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          return null;
+        }
+        continue;
+        
+      } on SocketException catch (e) {
+        print('SocketException on get user stats: $e');
+        if (attempt == _maxRetries) {
+          return null;
+        }
+        continue;
+        
+      } on FormatException catch (e) {
+        print('FormatException on get user stats: $e');
+        if (attempt == _maxRetries) {
+          return null;
+        }
+        continue;
+        
+      } catch (e) {
+        print('Error getting user stats on attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          return null;
+        }
+        continue;
+      }
+    }
+    
+    return null;
+  }
+
   // FIXED: Get updated driver stats with correct route
   Future<Map<String, dynamic>?> getDriverStats(String userId) async {
     print('Getting driver stats for user: $userId');

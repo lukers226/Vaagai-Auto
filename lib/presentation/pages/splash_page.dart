@@ -9,12 +9,14 @@ class SplashPage extends StatefulWidget {
 
 class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   late AnimationController _scaleController;
+  late AnimationController _leftTextController;
+  late AnimationController _rightTextController;
   late AnimationController _fadeController;
-  late AnimationController _slideController;
   
   late Animation<double> _scaleAnimation;
+  late Animation<Offset> _leftTextAnimation;
+  late Animation<Offset> _rightTextAnimation;
   late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
@@ -26,13 +28,18 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       vsync: this,
     );
     
-    _fadeController = AnimationController(
-      duration: Duration(milliseconds: 800),
+    _leftTextController = AnimationController(
+      duration: Duration(milliseconds: 1000),
       vsync: this,
     );
     
-    _slideController = AnimationController(
+    _rightTextController = AnimationController(
       duration: Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _fadeController = AnimationController(
+      duration: Duration(milliseconds: 800),
       vsync: this,
     );
     
@@ -45,20 +52,30 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       curve: Curves.elasticOut,
     ));
     
+    // Left text slides from left to center
+    _leftTextAnimation = Tween<Offset>(
+      begin: Offset(-2.0, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _leftTextController,
+      curve: Curves.easeOutBack,
+    ));
+    
+    // Right text slides from right to center
+    _rightTextAnimation = Tween<Offset>(
+      begin: Offset(2.0, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _rightTextController,
+      curve: Curves.easeOutBack,
+    ));
+    
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _fadeController,
       curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: Offset(0.0, 0.5),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutBack,
     ));
     
     // Start animations
@@ -71,13 +88,14 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     await Future.delayed(Duration(milliseconds: 300));
     _scaleController.forward();
     
-    // Start text fade animation
+    // Start both text animations simultaneously with slight delay
+    await Future.delayed(Duration(milliseconds: 600));
+    _leftTextController.forward();
+    _rightTextController.forward();
+    
+    // Start loading indicator fade animation
     await Future.delayed(Duration(milliseconds: 400));
     _fadeController.forward();
-    
-    // Start text slide animation
-    await Future.delayed(Duration(milliseconds: 200));
-    _slideController.forward();
   }
 
   _navigateToLogin() async {
@@ -90,8 +108,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _scaleController.dispose();
+    _leftTextController.dispose();
+    _rightTextController.dispose();
     _fadeController.dispose();
-    _slideController.dispose();
     super.dispose();
   }
 
@@ -116,7 +135,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Animated Image
+              // Animated Image in Center
               ScaleTransition(
                 scale: _scaleAnimation,
                 child: Container(
@@ -125,10 +144,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: Image.asset(
-                      'assets/images/logo.png', // Your logo image
+                      'assets/images/logo.png',
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        // Fallback icon if image is not found
                         return Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -147,55 +165,62 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+ 
               
-              SizedBox(height: 40),
-              
-              // Animated App Name
-              SlideTransition(
-                position: _slideAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Text(
-                    AppConstants.appName,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
-                      shadows: [
-                        Shadow(
-                          offset: Offset(0, 2),
-                          blurRadius: 4,
-                          color: Colors.black.withOpacity(0.3),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            
-              
-              // Animated Loading Indicator
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: Container(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              // Animated App Name with Split Text Animation
+              Container(
+                height: 50, // Fixed height to prevent layout shifts
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // "Vaagai" text sliding from left
+                    SlideTransition(
+                      position: _leftTextAnimation,
+                      child: Text(
+                        'Vaagai',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 1.2,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(0, 2),
+                              blurRadius: 4,
+                              color: Colors.black.withOpacity(0.3),
+                            ),
+                          ],
                         ),
                       ),
-                      SizedBox(height: 16),
-                      
-                    ],
-                  ),
+                    ),
+                    
+                    SizedBox(width: 8), // Space between words
+                    
+                    // "Auto" text sliding from right
+                    SlideTransition(
+                      position: _rightTextAnimation,
+                      child: Text(
+                        'Auto',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 1.2,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(0, 2),
+                              blurRadius: 4,
+                              color: Colors.black.withOpacity(0.3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+           
             ],
           ),
         ),

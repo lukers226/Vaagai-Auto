@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vaagaiauto/presentation/widgets/ride_widgets.dart';
 import 'package:vaagaiauto/data/services/api_service.dart';
 import '../../data/models/user_model.dart';
@@ -323,7 +324,47 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  // FIXED: Handle complete ride with proper mounted checks
+  // Replace the existing _updateDailyStats method in StartRidePage with this:
+Future<void> _updateDailyStats(double earnings) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final currentDate = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD format
+    
+    // Get user ID for user-specific storage keys
+    final userId = widget.user.id ?? 'unknown_user';
+    
+    // USER-SPECIFIC KEYS - Each user has their own stats
+    final userTripsKey = 'today_trips_$userId';
+    final userEarningsKey = 'today_earnings_$userId';
+    final userDateKey = 'daily_stats_date_$userId';
+    
+    // Get stored stats date to check if it's a new day FOR THIS USER
+    final storedDate = prefs.getString(userDateKey) ?? '';
+    
+    print('Updating daily stats for user: $userId');
+    
+    if (storedDate != currentDate) {
+      // New day detected FOR THIS USER, set stats to 1 trip and current earnings
+      await prefs.setInt(userTripsKey, 1);
+      await prefs.setDouble(userEarningsKey, earnings);
+      await prefs.setString(userDateKey, currentDate);
+      print('Daily stats reset for user $userId on new day: $currentDate');
+    } else {
+      // Same day, increment existing stats FOR THIS USER
+      final currentTrips = prefs.getInt(userTripsKey) ?? 0;
+      final currentEarnings = prefs.getDouble(userEarningsKey) ?? 0.0;
+      
+      await prefs.setInt(userTripsKey, currentTrips + 1);
+      await prefs.setDouble(userEarningsKey, currentEarnings + earnings);
+      print('Daily stats updated for user $userId: trips=${currentTrips + 1}, earnings=${currentEarnings + earnings}');
+    }
+  } catch (e) {
+    print('Error updating daily stats for user ${widget.user.id}: $e');
+  }
+}
+
+
+  // FIXED: Handle complete ride with daily stats update
   Future<void> _handleCompleteRide() async {
     if (!mounted || _isDisposed) return;
     
@@ -389,6 +430,9 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         rideEarnings: rideEarnings,
         tripData: tripData,
       );
+
+      // NEW: Update daily stats locally regardless of API success
+      await _updateDailyStats(rideEarnings);
       
       if (!mounted || _isDisposed) return;
       
@@ -408,7 +452,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     }
   }
 
-  // Rest of your methods remain the same but add mounted checks...
+  // Rest of your methods remain the same...
   void _showCustomerPhoneInput() {
     if (!mounted || _isDisposed) return;
     

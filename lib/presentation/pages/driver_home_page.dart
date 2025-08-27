@@ -8,13 +8,84 @@ import '../../data/models/user_model.dart';
 import 'login_page.dart';
 import 'driver_profile_page.dart';
 import 'driver_earnings_page.dart';
-import 'driver_history_page.dart';
 import 'start_ride_page.dart';
 
-class DriverHomePage extends StatelessWidget {
+class DriverHomePage extends StatefulWidget {
   final UserModel user;
 
   const DriverHomePage({Key? key, required this.user}) : super(key: key);
+
+  @override
+  _DriverHomePageState createState() => _DriverHomePageState();
+}
+
+class _DriverHomePageState extends State<DriverHomePage> {
+  int _todayTrips = 0;
+  double _todayEarnings = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDailyStats();
+  }
+
+  // FIXED: Load user-specific daily stats from SharedPreferences
+  Future<void> _loadDailyStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentDate = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD format
+      
+      // Get user ID for user-specific storage keys
+      final userId = widget.user.id ?? 'unknown_user';
+      
+      // USER-SPECIFIC KEYS - Each user has their own stats
+      final userTripsKey = 'today_trips_$userId';
+      final userEarningsKey = 'today_earnings_$userId';
+      final userDateKey = 'daily_stats_date_$userId';
+      
+      // Get stored stats date to check if it's a new day FOR THIS USER
+      final storedDate = prefs.getString(userDateKey) ?? '';
+      
+      print('Loading stats for user: $userId');
+      print('Current date: $currentDate, Stored date: $storedDate');
+      
+      if (storedDate != currentDate) {
+        // New day detected FOR THIS USER, reset stats to 0
+        await prefs.setInt(userTripsKey, 0);
+        await prefs.setDouble(userEarningsKey, 0.0);
+        await prefs.setString(userDateKey, currentDate);
+        
+        if (mounted) {
+          setState(() {
+            _todayTrips = 0;
+            _todayEarnings = 0.0;
+          });
+        }
+        print('Daily stats reset for user $userId on new day: $currentDate');
+      } else {
+        // Same day, load existing stats FOR THIS USER
+        final trips = prefs.getInt(userTripsKey) ?? 0;
+        final earnings = prefs.getDouble(userEarningsKey) ?? 0.0;
+        
+        if (mounted) {
+          setState(() {
+            _todayTrips = trips;
+            _todayEarnings = earnings;
+          });
+        }
+        print('Daily stats loaded for user $userId: trips=$trips, earnings=$earnings');
+      }
+    } catch (e) {
+      print('Error loading daily stats: $e');
+      // Set default values on error
+      if (mounted) {
+        setState(() {
+          _todayTrips = 0;
+          _todayEarnings = 0.0;
+        });
+      }
+    }
+  }
 
   void _logout(BuildContext context) {
     showDialog(
@@ -40,7 +111,7 @@ class DriverHomePage extends StatelessWidget {
                 Navigator.of(context).pop();
                 context.read<AuthBloc>().add(LogoutRequested());
                 
-                // Clear local storage
+                // Clear login status from local storage
                 await _clearLoginStatus();
                 
                 Navigator.of(context).pushReplacement(
@@ -59,7 +130,7 @@ class DriverHomePage extends StatelessWidget {
     );
   }
 
-  // Clear login status from local storage
+  // Clear login status from local storage (but keep user-specific daily stats)
   Future<void> _clearLoginStatus() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -68,6 +139,9 @@ class DriverHomePage extends StatelessWidget {
       await prefs.remove('phone_number');
       await prefs.remove('user_name');
       await prefs.remove('login_timestamp');
+      
+      // NOTE: We don't clear user-specific daily stats here
+      // so they persist even after logout/login on the same day
     } catch (e) {
       print('Error clearing login status: $e');
     }
@@ -89,11 +163,15 @@ class DriverHomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Driver Dashboard', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.black),),
-        centerTitle: false,
-        iconTheme: IconThemeData(
-          color: Colors.black
+        title: Text(
+          'Driver Dashboard', 
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold, 
+            color: Colors.black
+          ),
         ),
+        centerTitle: false,
+        iconTheme: IconThemeData(color: Colors.black),
         backgroundColor: Colors.yellow,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -128,7 +206,7 @@ class DriverHomePage extends StatelessWidget {
                   ),
                   SizedBox(height: 15),
                   Text(
-                    user.name ?? 'Driver',
+                    widget.user.name ?? 'Driver',
                     style: GoogleFonts.lato(
                       color: Colors.black,
                       fontSize: 18,
@@ -140,6 +218,15 @@ class DriverHomePage extends StatelessWidget {
                     style: GoogleFonts.lato(
                       color: Colors.black,
                       fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  // Show user ID for debugging (remove in production)
+                  Text(
+                    'ID: ${widget.user.id ?? 'N/A'}',
+                    style: GoogleFonts.lato(
+                      color: Colors.black54,
+                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -159,33 +246,20 @@ class DriverHomePage extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DriverProfilePage(user: user),
+                            builder: (context) => DriverProfilePage(user: widget.user),
                           ),
                         );
                       },
                     ),
                     _buildDrawerItem(
                       icon: Icons.account_balance_wallet,
-                      title: 'Total Earnings',
+                      title: 'Performance Summary',
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => DriverEarningsPage(user: user),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDrawerItem(
-                      icon: Icons.history,
-                      title: 'Trip History',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DriverHistoryPage(user: user),
+                            builder: (context) => DriverEarningsPage(user: widget.user),
                           ),
                         );
                       },
@@ -222,7 +296,7 @@ class DriverHomePage extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  '${_getGreeting()} ${user.name ?? 'Driver'}!',
+                  '${_getGreeting()} ${widget.user.name ?? 'Driver'}!',
                   style: GoogleFonts.lato(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -240,13 +314,16 @@ class DriverHomePage extends StatelessWidget {
               width: double.infinity,
               height: 54,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  // Navigate to Start Ride and refresh stats when returning
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => StartRidePage(user: user),
+                      builder: (context) => StartRidePage(user: widget.user),
                     ),
                   );
+                  // Refresh stats when returning from ride page
+                  _loadDailyStats();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.yellow,
@@ -262,7 +339,7 @@ class DriverHomePage extends StatelessWidget {
                     Icon(Icons.directions_car, size: 24),
                     SizedBox(width: 10),
                     Text(
-                      'Start Ride',
+                      'Auto Meter is Ready!',
                       style: GoogleFonts.lato(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -275,13 +352,13 @@ class DriverHomePage extends StatelessWidget {
 
             SizedBox(height: 30),
 
-            // Small Stats Cards
+            // User-Specific Dynamic Stats Cards
             Row(
               children: [
                 Expanded(
                   child: _buildStatCard(
                     'Today\'s Trips', 
-                    '0', 
+                    '$_todayTrips', 
                     Icons.route, 
                     Colors.blue[600]!
                   ),
@@ -289,14 +366,16 @@ class DriverHomePage extends StatelessWidget {
                 SizedBox(width: 15),
                 Expanded(
                   child: _buildStatCard(
-                    'Earnings', 
-                    '₹0.00', 
+                    'Today Earnings', 
+                    '₹${_todayEarnings.toStringAsFixed(2)}', 
                     Icons.monetization_on, 
                     Colors.orange[600]!
                   ),
                 ),
               ],
             ),
+
+            SizedBox(height: 16),
           ],
         ),
       ),

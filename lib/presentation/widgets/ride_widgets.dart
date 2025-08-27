@@ -18,7 +18,7 @@ class RideWidgets {
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.yellow,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -38,9 +38,9 @@ class RideWidgets {
             Expanded(
               child: Text(
                 title,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.poppins(
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
               ),
@@ -106,11 +106,11 @@ class RideWidgets {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.white.withOpacity(0.04),
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -123,7 +123,7 @@ class RideWidgets {
             height: 48,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF00B562), Color(0xFF00A855)],
+                colors: [Colors.yellow, Colors.yellow],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -137,18 +137,11 @@ class RideWidgets {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.name ?? "Driver",
-                  style: GoogleFonts.inter(
+                  "${user.name ?? 'Driver'} Driver",
+                  style: GoogleFonts.lato(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                Text(
-                  'Auto Driver • DL12AB1234',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
+                    color: Colors.white,
                   ),
                 ),
               ],
@@ -157,7 +150,7 @@ class RideWidgets {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Color(0xFF00B562).withOpacity(0.1),
+              color: Colors.yellow.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -176,7 +169,7 @@ class RideWidgets {
                   isOnline ? 'Online' : 'Offline',
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                     color: Color(0xFF00B562),
                   ),
                 ),
@@ -212,7 +205,7 @@ class RideWidgets {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isGpsReady ? Color(0xFF00B562).withOpacity(0.1) : Colors.red.withOpacity(0.1),
+              color: isGpsReady ? Color(0xFF00B56).withOpacity(0.1) : Colors.red.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
@@ -273,48 +266,7 @@ class RideWidgets {
   Widget buildStartRideUI({required VoidCallback onStartRide}) {
     return Column(
       children: [
-        Container(
-          height: 200,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF00B562).withOpacity(0.1), Color(0xFF00A855).withOpacity(0.05)],
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.play_arrow_rounded,
-                    size: 40,
-                    color: Color(0xFF00B562),
-                  ),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Ready to Start Ride',
-                  style: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Tap the button below to begin tracking',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+       
         SizedBox(height: 24),
         Container(
           width: double.infinity,
@@ -322,7 +274,7 @@ class RideWidgets {
           child: ElevatedButton(
             onPressed: onStartRide,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF00B562),
+              backgroundColor: Colors.yellow,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
@@ -330,13 +282,12 @@ class RideWidgets {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.play_arrow, size: 24),
-                SizedBox(width: 8),
                 Text(
                   'START RIDE',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.lato(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
                     letterSpacing: 0.5,
                   ),
                 ),
