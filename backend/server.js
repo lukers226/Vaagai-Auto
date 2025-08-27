@@ -20,6 +20,8 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', rideRoutes); // NEW: Add ride management routes
+app.use('/api/rides', rideRoutes);
+
 
 // Default route
 app.get('/', (req, res) => {

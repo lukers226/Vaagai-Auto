@@ -1,5 +1,5 @@
 const Driver = require('../models/Driver');
-const User = require('../models/User'); // Add this import if you have a User model
+const User = require('../models/User'); // Make sure this import exists
 
 // Cancel ride - increment cancelled rides count
 const cancelRide = async (req, res) => {
@@ -7,10 +7,10 @@ const cancelRide = async (req, res) => {
     const { userId } = req.params;
     const { action, timestamp } = req.body;
     
-    console.log('Cancelling ride for user:', userId);
-    console.log('Request body:', { action, timestamp });
+    console.log('[CANCEL RIDE] Processing for user:', userId);
+    console.log('[CANCEL RIDE] Request body:', { action, timestamp });
     
-    // FIXED: First try to find by _id (MongoDB ObjectId), then fallback to userId field
+    // First try to find by _id (MongoDB ObjectId)
     let updatedDriver = await Driver.findByIdAndUpdate(
       userId,
       { 
@@ -23,7 +23,7 @@ const cancelRide = async (req, res) => {
     
     // If not found by _id, try searching by userId field
     if (!updatedDriver) {
-      console.log('Driver not found by _id, trying userId field...');
+      console.log('[CANCEL RIDE] Driver not found by _id, trying userId field...');
       updatedDriver = await Driver.findOneAndUpdate(
         { userId: userId },
         { 
@@ -37,14 +37,12 @@ const cancelRide = async (req, res) => {
     
     // If still not found, try to find/create driver record using User data
     if (!updatedDriver) {
-      console.log('Driver record not found, trying to find User and create Driver record...');
+      console.log('[CANCEL RIDE] Driver record not found, trying to find User and create Driver record...');
       
-      // Try to find the user by _id
       const user = await User.findById(userId);
       if (user) {
-        console.log('User found, creating new Driver record...');
+        console.log('[CANCEL RIDE] User found, creating new Driver record...');
         
-        // Create new driver record based on user data
         updatedDriver = new Driver({
           userId: user._id,
           name: user.name,
@@ -62,25 +60,21 @@ const cancelRide = async (req, res) => {
         });
         
         await updatedDriver.save();
-        console.log('New driver record created successfully');
+        console.log('[CANCEL RIDE] New driver record created successfully');
       }
     }
     
     if (!updatedDriver) {
-      console.log('Driver/User not found with ID:', userId);
+      console.log('[CANCEL RIDE] Driver/User not found with ID:', userId);
       return res.status(404).json({ 
         success: false,
         error: 'Driver not found. Please ensure you are logged in correctly.' 
       });
     }
     
-    console.log('Cancelled rides updated successfully for:', updatedDriver.name);
-    console.log('Updated driver stats:', {
-      cancelledRides: updatedDriver.cancelledRides,
-      totalRides: updatedDriver.totalRides
-    });
+    console.log('[CANCEL RIDE] Success for:', updatedDriver.name);
     
-    res.json({
+    res.status(200).json({
       success: true,
       message: 'Ride cancelled successfully',
       data: {
@@ -94,9 +88,8 @@ const cancelRide = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Cancel ride error:', error);
+    console.error('[CANCEL RIDE] Error:', error);
     
-    // Handle specific MongoDB errors
     if (error.name === 'CastError') {
       return res.status(400).json({ 
         success: false,
@@ -124,10 +117,8 @@ const completeRide = async (req, res) => {
     const { userId } = req.params;
     const { rideEarnings, tripData } = req.body;
     
-    console.log('Completing ride for user:', userId, 'with earnings:', rideEarnings);
-    console.log('Trip data received:', JSON.stringify(tripData, null, 2));
+    console.log('[COMPLETE RIDE] Processing for user:', userId, 'with earnings:', rideEarnings);
     
-    // Validate input
     if (!rideEarnings || rideEarnings <= 0) {
       return res.status(400).json({
         success: false,
@@ -135,7 +126,7 @@ const completeRide = async (req, res) => {
       });
     }
     
-    // FIXED: First try to find by _id (MongoDB ObjectId), then fallback to userId field
+    // First try to find by _id (MongoDB ObjectId)
     let updatedDriver = await Driver.findByIdAndUpdate(
       userId,
       { 
@@ -154,7 +145,7 @@ const completeRide = async (req, res) => {
     
     // If not found by _id, try searching by userId field
     if (!updatedDriver) {
-      console.log('Driver not found by _id, trying userId field...');
+      console.log('[COMPLETE RIDE] Driver not found by _id, trying userId field...');
       updatedDriver = await Driver.findOneAndUpdate(
         { userId: userId },
         { 
@@ -174,14 +165,12 @@ const completeRide = async (req, res) => {
     
     // If still not found, try to find/create driver record using User data
     if (!updatedDriver) {
-      console.log('Driver record not found, trying to find User and create Driver record...');
+      console.log('[COMPLETE RIDE] Driver record not found, trying to find User and create Driver record...');
       
-      // Try to find the user by _id
       const user = await User.findById(userId);
       if (user) {
-        console.log('User found, creating new Driver record...');
+        console.log('[COMPLETE RIDE] User found, creating new Driver record...');
         
-        // Create new driver record based on user data
         updatedDriver = new Driver({
           userId: user._id,
           name: user.name,
@@ -199,39 +188,21 @@ const completeRide = async (req, res) => {
         });
         
         await updatedDriver.save();
-        console.log('New driver record created successfully');
+        console.log('[COMPLETE RIDE] New driver record created successfully');
       }
     }
     
     if (!updatedDriver) {
-      console.log('Driver/User not found with ID:', userId);
+      console.log('[COMPLETE RIDE] Driver/User not found with ID:', userId);
       return res.status(404).json({ 
         success: false,
         error: 'Driver not found. Please ensure you are logged in correctly.' 
       });
     }
     
-    console.log('Completed ride updated successfully for:', updatedDriver.name);
-    console.log('Previous total earnings:', (updatedDriver.totalEarnings - rideEarnings));
-    console.log('New total earnings:', updatedDriver.totalEarnings);
-    console.log('This ride earnings:', rideEarnings);
+    console.log('[COMPLETE RIDE] Success for:', updatedDriver.name);
     
-    // Optional: Save trip details to a separate trips collection
-    if (tripData) {
-      console.log('Trip data processing completed');
-      // Uncomment these lines if you want to save detailed trip data:
-      // const Trip = require('../models/Trip');
-      // const trip = new Trip({
-      //   driverId: updatedDriver._id,
-      //   userId: updatedDriver.userId,
-      //   ...tripData,
-      //   earnings: rideEarnings
-      // });
-      // await trip.save();
-      // console.log('Trip details saved successfully');
-    }
-    
-    res.json({
+    res.status(200).json({
       success: true,
       message: 'Trip completed successfully! Earnings updated.',
       data: {
@@ -248,9 +219,8 @@ const completeRide = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Complete ride error:', error);
+    console.error('[COMPLETE RIDE] Error:', error);
     
-    // Handle specific MongoDB errors
     if (error.name === 'CastError') {
       return res.status(400).json({ 
         success: false,
@@ -277,27 +247,25 @@ const getDriverStats = async (req, res) => {
   try {
     const { userId } = req.params;
     
-    console.log('Getting stats for user:', userId);
+    console.log('[GET STATS] Processing for user:', userId);
     
-    // FIXED: First try to find by _id (MongoDB ObjectId), then fallback to userId field
+    // First try to find by _id (MongoDB ObjectId)
     let driver = await Driver.findById(userId);
     
     // If not found by _id, try searching by userId field
     if (!driver) {
-      console.log('Driver not found by _id, trying userId field...');
+      console.log('[GET STATS] Driver not found by _id, trying userId field...');
       driver = await Driver.findOne({ userId: userId });
     }
     
     // If still not found, try to find user and create driver record
     if (!driver) {
-      console.log('Driver record not found, trying to find User...');
+      console.log('[GET STATS] Driver record not found, trying to find User...');
       
-      // Try to find the user by _id
       const user = await User.findById(userId);
       if (user) {
-        console.log('User found, creating new Driver record...');
+        console.log('[GET STATS] User found, creating new Driver record...');
         
-        // Create new driver record based on user data with default stats
         driver = new Driver({
           userId: user._id,
           name: user.name,
@@ -314,12 +282,12 @@ const getDriverStats = async (req, res) => {
         });
         
         await driver.save();
-        console.log('New driver record created successfully');
+        console.log('[GET STATS] New driver record created successfully');
       }
     }
     
     if (!driver) {
-      console.log('Driver/User not found with ID:', userId);
+      console.log('[GET STATS] Driver/User not found with ID:', userId);
       return res.status(404).json({ 
         success: false,
         error: 'Driver not found. Please ensure you are logged in correctly.' 
@@ -341,24 +309,22 @@ const getDriverStats = async (req, res) => {
       lastCancelledAt: driver.lastCancelledAt,
       createdAt: driver.createdAt,
       updatedAt: driver.updatedAt,
-      // Calculated fields
       successRate: driver.totalRides > 0 ? 
         Math.round((driver.completedRides / driver.totalRides) * 100) : 0,
       averageEarnings: driver.completedRides > 0 ? 
         Math.round((driver.totalEarnings / driver.completedRides) * 100) / 100 : 0
     };
     
-    console.log('Driver stats retrieved:', JSON.stringify(stats, null, 2));
+    console.log('[GET STATS] Success for:', driver.name);
     
-    res.json({
+    res.status(200).json({
       success: true,
       message: 'Driver statistics retrieved successfully',
       data: stats
     });
   } catch (error) {
-    console.error('Get driver stats error:', error);
+    console.error('[GET STATS] Error:', error);
     
-    // Handle specific MongoDB errors
     if (error.name === 'CastError') {
       return res.status(400).json({ 
         success: false,
