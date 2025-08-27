@@ -61,7 +61,147 @@ const getDrivers = async (req, res) => {
   }
 };
 
+const getDriverStats = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const driver = await Driver.findById(id);
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      stats: {
+        earnings: driver.earnings,
+        totalEarnings: driver.totalEarnings,
+        totalTrips: driver.totalTrips,
+        totalRides: driver.totalRides,
+        completedRides: driver.completedRides,
+        cancelledRides: driver.cancelledRides,
+        completionRate: driver.totalRides > 0 ? 
+          ((driver.completedRides / driver.totalRides) * 100).toFixed(2) : 0
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+const updateDriverEarnings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount } = req.body;
+
+    const driver = await Driver.findById(id);
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+
+    // Update earnings
+    driver.earnings += amount;
+    driver.totalEarnings += amount;
+    await driver.save();
+
+    // Also update User model
+    await User.findByIdAndUpdate(driver.userId, {
+      $inc: { 
+        earnings: amount,
+        totalEarnings: amount
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Earnings updated successfully',
+      driver: {
+        earnings: driver.earnings,
+        totalEarnings: driver.totalEarnings
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+const updateDriverRide = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const driver = await Driver.findById(id);
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+
+    // Update ride counts
+    driver.totalRides += 1;
+    driver.totalTrips += 1;
+    
+    if (status === 'completed') {
+      driver.completedRides += 1;
+    } else if (status === 'cancelled') {
+      driver.cancelledRides += 1;
+    }
+
+    await driver.save();
+
+    // Also update User model
+    const updateData = {
+      $inc: { 
+        totalRides: 1,
+        totalTrips: 1
+      }
+    };
+
+    if (status === 'completed') {
+      updateData.$inc.completedRides = 1;
+    } else if (status === 'cancelled') {
+      updateData.$inc.cancelledRides = 1;
+    }
+
+    await User.findByIdAndUpdate(driver.userId, updateData);
+
+    res.json({
+      success: true,
+      message: `Ride ${status} successfully`,
+      driver: {
+        totalRides: driver.totalRides,
+        completedRides: driver.completedRides,
+        cancelledRides: driver.cancelledRides,
+        totalTrips: driver.totalTrips
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   addDriver,
-  getDrivers
+  getDrivers,
+  getDriverStats,
+  updateDriverEarnings,
+  updateDriverRide
 };
