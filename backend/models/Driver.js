@@ -16,6 +16,30 @@ const driverSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  earnings: {
+    type: Number,
+    default: 0
+  },
+  totalTrips: {
+    type: Number,
+    default: 0
+  },
+  totalEarnings: {
+    type: Number,
+    default: 0
+  },
+  totalRides: {
+    type: Number,
+    default: 0
+  },
+  cancelledRides: {
+    type: Number,
+    default: 0
+  },
+  completedRides: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
