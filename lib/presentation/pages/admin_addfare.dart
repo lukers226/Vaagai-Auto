@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:vaagaiauto/data/services/fare_service.dart';
 
 class AddFarePage extends StatefulWidget {
-  final String currentUserId; // Pass current user ID when navigating to this page
+  final String currentUserId;
 
   const AddFarePage({super.key, required this.currentUserId});
 
@@ -24,37 +24,65 @@ class AddFarePageState extends State<AddFarePage> {
   bool _isLoading = false;
   bool _isUpdating = false;
   bool _hasExistingFare = false;
+  String _debugInfo = '';
 
   @override
   void initState() {
     super.initState();
+    print('AddFarePage initialized with userId: ${widget.currentUserId}');
     _loadExistingFare();
+  }
+
+  // Helper method to safely convert dynamic values to double
+  double _safeToDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return double.tryParse(value.toString()) ?? 0.0;
+  }
+
+  // Helper method to safely convert dynamic values to string for text controllers
+  String _safeToString(dynamic value) {
+    if (value == null) return '0';
+    if (value is String) return value;
+    if (value is num) return value.toString();
+    return value.toString();
   }
 
   Future<void> _loadExistingFare() async {
     setState(() {
       _isLoading = true;
+      _debugInfo = 'Loading fare data...';
     });
 
     try {
+      print('Loading existing fare for userId: ${widget.currentUserId}');
       final result = await FareService.getFareByUserId(widget.currentUserId);
       
+      print('Load result: $result');
+      
       if (result['success'] && result['data'] != null) {
-        final fareData = result['data'];
+        final fareData = result['data'] as Map<String, dynamic>;
         setState(() {
           _hasExistingFare = true;
+          _debugInfo = 'Existing fare loaded successfully';
         });
         
-        _baseFareController.text = fareData['baseFare'].toString();
-        _waiting5Controller.text = fareData['waiting5min'].toString();
-        _waiting10Controller.text = fareData['waiting10min'].toString();
-        _waiting15Controller.text = fareData['waiting15min'].toString();
-        _waiting20Controller.text = fareData['waiting20min'].toString();
-        _waiting25Controller.text = fareData['waiting25min'].toString();
-        _waiting30Controller.text = fareData['waiting30min'].toString();
+        // Safely convert dynamic values to strings for text controllers
+        _baseFareController.text = _safeToString(fareData['baseFare']);
+        _waiting5Controller.text = _safeToString(fareData['waiting5min']);
+        _waiting10Controller.text = _safeToString(fareData['waiting10min']);
+        _waiting15Controller.text = _safeToString(fareData['waiting15min']);
+        _waiting20Controller.text = _safeToString(fareData['waiting20min']);
+        _waiting25Controller.text = _safeToString(fareData['waiting25min']);
+        _waiting30Controller.text = _safeToString(fareData['waiting30min']);
+        
+        print('Loaded existing fare data: $fareData');
       } else {
         setState(() {
           _hasExistingFare = false;
+          _debugInfo = 'No existing fare found - creating new';
         });
         // Set default values for new fare
         _waiting5Controller.text = '0';
@@ -63,9 +91,14 @@ class AddFarePageState extends State<AddFarePage> {
         _waiting20Controller.text = '0';
         _waiting25Controller.text = '0';
         _waiting30Controller.text = '0';
+        
+        print('No existing fare found, using default values');
       }
     } catch (e) {
       print('Error loading existing fare: $e');
+      setState(() {
+        _debugInfo = 'Error loading fare: $e';
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -80,6 +113,34 @@ class AddFarePageState extends State<AddFarePage> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _testDatabaseConnection() async {
+    setState(() {
+      _debugInfo = 'Testing database connection...';
+    });
+
+    try {
+      final result = await FareService.testConnection();
+      setState(() {
+        _debugInfo = 'DB Test: ${result['success'] ? 'SUCCESS' : 'FAILED'} - ${result['message'] ?? 'Unknown'}';
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Database Test: ${result['success'] ? 'Connected' : 'Failed'}'),
+          backgroundColor: result['success'] ? Colors.green : Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      
+      print('Database test result: $result');
+    } catch (e) {
+      setState(() {
+        _debugInfo = 'DB Test Error: $e';
+      });
+      print('Database test error: $e');
     }
   }
 
@@ -111,6 +172,13 @@ class AddFarePageState extends State<AddFarePage> {
         backgroundColor: Colors.yellow,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.bug_report),
+            onPressed: _testDatabaseConnection,
+            tooltip: 'Test DB Connection',
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -138,6 +206,17 @@ class AddFarePageState extends State<AddFarePage> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    if (_debugInfo.isNotEmpty) ...[
+                      SizedBox(height: 10),
+                      Text(
+                        _debugInfo,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ],
                 ),
               )
@@ -161,50 +240,71 @@ class AddFarePageState extends State<AddFarePage> {
                         ),
                       ],
                     ),
-                    child: Row(
+                    child: Column(
                       children: [
-                        Icon(Icons.local_taxi, color: Colors.white, size: 30),
-                        SizedBox(width: 15),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Fare Configuration',
-                                style: GoogleFonts.lato(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                        Row(
+                          children: [
+                            Icon(Icons.local_taxi, color: Colors.white, size: 30),
+                            SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Fare Configuration',
+                                    style: GoogleFonts.lato(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    _hasExistingFare 
+                                        ? 'Update your fare rates & waiting charges'
+                                        : 'Set base fare & waiting charges',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_hasExistingFare)
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[100],
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'CONFIGURED',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
                                 ),
                               ),
-                              Text(
-                                _hasExistingFare 
-                                    ? 'Update your fare rates & waiting charges'
-                                    : 'Set base fare & waiting charges',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
-                        if (_hasExistingFare)
+                        if (_debugInfo.isNotEmpty) ...[
+                          SizedBox(height: 10),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.green[100],
-                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.white10,
+                              borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
-                              'CONFIGURED',
+                              'Debug: $_debugInfo',
                               style: TextStyle(
                                 fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green[700],
+                                color: Colors.white70,
                               ),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -219,6 +319,31 @@ class AddFarePageState extends State<AddFarePage> {
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Column(
                           children: [
+                            // User ID Debug Info
+                            Container(
+                              margin: EdgeInsets.only(bottom: 16),
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[50],
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.blue[200]!),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.person, color: Colors.blue[600], size: 16),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'User ID: ${widget.currentUserId}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue[700],
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
                             // Base Fare Section
                             Container(
                               margin: EdgeInsets.only(bottom: 16),
@@ -248,7 +373,7 @@ class AddFarePageState extends State<AddFarePage> {
                                         ),
                                         SizedBox(width: 8),
                                         Text(
-                                          'Base Fare',
+                                          'Base Fare *',
                                           style: GoogleFonts.lato(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -307,7 +432,7 @@ class AddFarePageState extends State<AddFarePage> {
                                   Icon(Icons.access_time, color: Colors.white, size: 24),
                                   SizedBox(width: 12),
                                   Text(
-                                    'Waiting Charges',
+                                    'Waiting Charges (Optional)',
                                     style: GoogleFonts.lato(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -327,6 +452,26 @@ class AddFarePageState extends State<AddFarePage> {
                             _buildWaitingChargeItem('30 Minutes', _waiting30Controller),
 
                             SizedBox(height: 30),
+
+                            // Test Connection Button
+                            Container(
+                              width: double.infinity,
+                              height: 40,
+                              margin: EdgeInsets.only(bottom: 10),
+                              child: OutlinedButton(
+                                onPressed: _testDatabaseConnection,
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: Colors.blue),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Test Database Connection',
+                                  style: TextStyle(color: Colors.blue),
+                                ),
+                              ),
+                            ),
 
                             // Update Button
                             Container(
@@ -468,6 +613,8 @@ class AddFarePageState extends State<AddFarePage> {
   }
 
   Future<void> _updateFares() async {
+    print('Update fares button pressed');
+    
     // Validate if at least base fare is entered
     if (_baseFareController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -479,11 +626,12 @@ class AddFarePageState extends State<AddFarePage> {
       return;
     }
 
-    // Validate base fare is not zero
-    if (double.tryParse(_baseFareController.text) == 0) {
+    // Safely parse base fare
+    final baseFare = double.tryParse(_baseFareController.text);
+    if (baseFare == null || baseFare <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Base fare cannot be zero'),
+          content: Text('Base fare must be a valid positive number'),
           backgroundColor: Colors.red,
         ),
       );
@@ -492,44 +640,82 @@ class AddFarePageState extends State<AddFarePage> {
 
     setState(() {
       _isUpdating = true;
+      _debugInfo = 'Saving fare data...';
     });
 
     try {
+      print('Attempting to save fare with userId: ${widget.currentUserId}');
+      
+      // Safely parse all values with fallback to 0.0
+      final waiting5min = double.tryParse(_waiting5Controller.text.isEmpty ? '0' : _waiting5Controller.text) ?? 0.0;
+      final waiting10min = double.tryParse(_waiting10Controller.text.isEmpty ? '0' : _waiting10Controller.text) ?? 0.0;
+      final waiting15min = double.tryParse(_waiting15Controller.text.isEmpty ? '0' : _waiting15Controller.text) ?? 0.0;
+      final waiting20min = double.tryParse(_waiting20Controller.text.isEmpty ? '0' : _waiting20Controller.text) ?? 0.0;
+      final waiting25min = double.tryParse(_waiting25Controller.text.isEmpty ? '0' : _waiting25Controller.text) ?? 0.0;
+      final waiting30min = double.tryParse(_waiting30Controller.text.isEmpty ? '0' : _waiting30Controller.text) ?? 0.0;
+      
+      print('Fare data to save:');
+      print('  baseFare: $baseFare');
+      print('  waiting5min: $waiting5min');
+      print('  waiting10min: $waiting10min');
+      print('  waiting15min: $waiting15min');
+      print('  waiting20min: $waiting20min');
+      print('  waiting25min: $waiting25min');
+      print('  waiting30min: $waiting30min');
+
       final result = await FareService.updateOrCreateFare(
         userId: widget.currentUserId,
-        baseFare: double.parse(_baseFareController.text.isEmpty ? '0' : _baseFareController.text),
-        waiting5min: double.parse(_waiting5Controller.text.isEmpty ? '0' : _waiting5Controller.text),
-        waiting10min: double.parse(_waiting10Controller.text.isEmpty ? '0' : _waiting10Controller.text),
-        waiting15min: double.parse(_waiting15Controller.text.isEmpty ? '0' : _waiting15Controller.text),
-        waiting20min: double.parse(_waiting20Controller.text.isEmpty ? '0' : _waiting20Controller.text),
-        waiting25min: double.parse(_waiting25Controller.text.isEmpty ? '0' : _waiting25Controller.text),
-        waiting30min: double.parse(_waiting30Controller.text.isEmpty ? '0' : _waiting30Controller.text),
+        baseFare: baseFare,
+        waiting5min: waiting5min,
+        waiting10min: waiting10min,
+        waiting15min: waiting15min,
+        waiting20min: waiting20min,
+        waiting25min: waiting25min,
+        waiting30min: waiting30min,
       );
+
+      print('Save result: $result');
 
       if (result['success']) {
         setState(() {
           _hasExistingFare = true;
+          _debugInfo = 'Fare saved successfully!';
         });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message']),
+            content: Text('✅ ${result['message']}'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 3),
           ),
         );
+        
+        // Refresh the data to confirm it was saved
+        await Future.delayed(Duration(seconds: 1));
+        await _loadExistingFare();
+        
       } else {
+        setState(() {
+          _debugInfo = 'Save failed: ${result['message']}';
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message']),
+            content: Text('❌ ${result['message']}'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 4),
           ),
         );
       }
     } catch (e) {
+      print('Exception during fare save: $e');
+      setState(() {
+        _debugInfo = 'Exception: $e';
+      });
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: Invalid input values'),
+          content: Text('❌ Error: $e'),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 3),
         ),

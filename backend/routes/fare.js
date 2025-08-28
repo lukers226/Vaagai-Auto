@@ -1,8 +1,13 @@
 const express = require('express');
+const mongoose = require('mongoose'); // IMPORTANT: Added missing import
 const router = express.Router();
 const Fare = require('../models/fareModel');
-const User = require('../models/User'); // Assuming you have User model
-const Driver = require('../models/driverModel');
+
+// Debug middleware to log all requests
+router.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, req.body);
+  next();
+});
 
 // Middleware to validate ObjectId
 const validateObjectId = (req, res, next) => {
@@ -18,8 +23,10 @@ const validateObjectId = (req, res, next) => {
 
 // @route   POST /api/fares
 // @desc    Create or update fare for a user
-// @access  Public (you can add auth middleware later)
+// @access  Public
 router.post('/', async (req, res) => {
+  console.log('POST /api/fares called with body:', req.body);
+  
   try {
     const {
       userId,
@@ -32,67 +39,107 @@ router.post('/', async (req, res) => {
       waiting30min = 0
     } = req.body;
 
-    // Validate required fields
+    // Enhanced validation
     if (!userId || !baseFare) {
+      console.log('Validation failed: Missing userId or baseFare');
       return res.status(400).json({
         success: false,
         message: 'User ID and base fare are required'
       });
     }
 
-    // Validate that userId exists in User or Driver collection
-    const userExists = await User.findById(userId) || await Driver.findById(userId);
-    if (!userExists) {
-      return res.status(404).json({
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log('Validation failed: Invalid userId format');
+      return res.status(400).json({
         success: false,
-        message: 'User not found'
+        message: 'Invalid user ID format'
       });
     }
 
+    // Validate baseFare is a positive number
+    if (isNaN(baseFare) || baseFare <= 0) {
+      console.log('Validation failed: Invalid baseFare value');
+      return res.status(400).json({
+        success: false,
+        message: 'Base fare must be a positive number'
+      });
+    }
+
+    console.log('Looking for existing fare for userId:', userId);
+    
     // Check if fare already exists for this user
-    let fare = await Fare.findOne({ userId });
+    let fare = await Fare.findOne({ userId: new mongoose.Types.ObjectId(userId) });
+    console.log('Existing fare found:', fare ? 'Yes' : 'No');
 
     if (fare) {
       // Update existing fare
-      fare.baseFare = baseFare;
-      fare.waiting5min = waiting5min;
-      fare.waiting10min = waiting10min;
-      fare.waiting15min = waiting15min;
-      fare.waiting20min = waiting20min;
-      fare.waiting25min = waiting25min;
-      fare.waiting30min = waiting30min;
-      fare.updatedAt = Date.now();
+      console.log('Updating existing fare');
+      
+      fare.baseFare = Number(baseFare);
+      fare.waiting5min = Number(waiting5min);
+      fare.waiting10min = Number(waiting10min);
+      fare.waiting15min = Number(waiting15min);
+      fare.waiting20min = Number(waiting20min);
+      fare.waiting25min = Number(waiting25min);
+      fare.waiting30min = Number(waiting30min);
 
-      await fare.save();
+      const savedFare = await fare.save();
+      console.log('Fare updated successfully:', savedFare._id);
 
       return res.status(200).json({
         success: true,
         message: 'Fare updated successfully',
-        data: fare
+        data: savedFare
       });
     } else {
       // Create new fare
-      fare = new Fare({
-        userId,
-        baseFare,
-        waiting5min,
-        waiting10min,
-        waiting15min,
-        waiting20min,
-        waiting25min,
-        waiting30min
-      });
+      console.log('Creating new fare');
+      
+      const newFareData = {
+        userId: new mongoose.Types.ObjectId(userId),
+        baseFare: Number(baseFare),
+        waiting5min: Number(waiting5min),
+        waiting10min: Number(waiting10min),
+        waiting15min: Number(waiting15min),
+        waiting20min: Number(waiting20min),
+        waiting25min: Number(waiting25min),
+        waiting30min: Number(waiting30min)
+      };
 
-      await fare.save();
+      console.log('New fare data:', newFareData);
+
+      fare = new Fare(newFareData);
+      const savedFare = await fare.save();
+      console.log('Fare created successfully:', savedFare._id);
 
       return res.status(201).json({
         success: true,
         message: 'Fare created successfully',
-        data: fare
+        data: savedFare
       });
     }
   } catch (error) {
-    console.error('Error creating/updating fare:', error);
+    console.error('Error in POST /api/fares:', error);
+    
+    // Handle mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: validationErrors
+      });
+    }
+
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Fare already exists for this user'
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Server error occurred while processing fare',
@@ -105,10 +152,13 @@ router.post('/', async (req, res) => {
 // @desc    Get fare by user ID
 // @access  Public
 router.get('/:userId', validateObjectId, async (req, res) => {
+  console.log('GET /api/fares/:userId called with userId:', req.params.userId);
+  
   try {
     const { userId } = req.params;
 
-    const fare = await Fare.findOne({ userId }).populate('userId', 'name phoneNumber');
+    const fare = await Fare.findOne({ userId: new mongoose.Types.ObjectId(userId) });
+    console.log('Fare found:', fare ? 'Yes' : 'No');
 
     if (!fare) {
       return res.status(404).json({
@@ -123,7 +173,7 @@ router.get('/:userId', validateObjectId, async (req, res) => {
       data: fare
     });
   } catch (error) {
-    console.error('Error fetching fare:', error);
+    console.error('Error in GET /api/fares/:userId:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error occurred while fetching fare',
@@ -134,21 +184,24 @@ router.get('/:userId', validateObjectId, async (req, res) => {
 
 // @route   GET /api/fares
 // @desc    Get all fares
-// @access  Public (Admin only - you can add auth middleware)
+// @access  Public
 router.get('/', async (req, res) => {
+  console.log('GET /api/fares called');
+  
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
     const fares = await Fare.find({ isActive: true })
-      .populate('userId', 'name phoneNumber')
       .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(limit);
 
     const total = await Fare.countDocuments({ isActive: true });
     const totalPages = Math.ceil(total / limit);
+
+    console.log(`Found ${fares.length} fares out of ${total} total`);
 
     return res.status(200).json({
       success: true,
@@ -163,7 +216,7 @@ router.get('/', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching fares:', error);
+    console.error('Error in GET /api/fares:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error occurred while fetching fares',
@@ -172,113 +225,35 @@ router.get('/', async (req, res) => {
   }
 });
 
-// @route   PUT /api/fares/:userId
-// @desc    Update fare for a specific user
-// @access  Public
-router.put('/:userId', validateObjectId, async (req, res) => {
+// Debug route to test connection and collection
+router.get('/debug/test', async (req, res) => {
   try {
-    const { userId } = req.params;
-    const updateData = req.body;
-
-    // Remove userId from update data if present
-    delete updateData.userId;
+    console.log('Testing database connection...');
     
-    // Add updatedAt timestamp
-    updateData.updatedAt = Date.now();
-
-    const fare = await Fare.findOneAndUpdate(
-      { userId },
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('userId', 'name phoneNumber');
-
-    if (!fare) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fare not found for this user'
-      });
-    }
-
-    return res.status(200).json({
+    // Test database connection
+    const dbStatus = mongoose.connection.readyState;
+    console.log('Database connection status:', dbStatus);
+    
+    // Test collection exists
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const fareCollection = collections.find(col => col.name === 'fares');
+    console.log('Fares collection exists:', fareCollection ? 'Yes' : 'No');
+    
+    // Test document count
+    const count = await Fare.countDocuments();
+    console.log('Total fare documents:', count);
+    
+    res.json({
       success: true,
-      message: 'Fare updated successfully',
-      data: fare
+      dbStatus: dbStatus === 1 ? 'connected' : 'disconnected',
+      collectionExists: !!fareCollection,
+      documentCount: count,
+      collections: collections.map(col => col.name)
     });
   } catch (error) {
-    console.error('Error updating fare:', error);
-    return res.status(500).json({
+    console.error('Debug test error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Server error occurred while updating fare',
-      error: error.message
-    });
-  }
-});
-
-// @route   DELETE /api/fares/:userId
-// @desc    Delete fare for a specific user (soft delete)
-// @access  Public (Admin only)
-router.delete('/:userId', validateObjectId, async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const fare = await Fare.findOneAndUpdate(
-      { userId },
-      { isActive: false, updatedAt: Date.now() },
-      { new: true }
-    );
-
-    if (!fare) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fare not found for this user'
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Fare deleted successfully',
-      data: fare
-    });
-  } catch (error) {
-    console.error('Error deleting fare:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error occurred while deleting fare',
-      error: error.message
-    });
-  }
-});
-
-// @route   POST /api/fares/:userId/activate
-// @desc    Reactivate a soft-deleted fare
-// @access  Public (Admin only)
-router.post('/:userId/activate', validateObjectId, async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const fare = await Fare.findOneAndUpdate(
-      { userId },
-      { isActive: true, updatedAt: Date.now() },
-      { new: true }
-    ).populate('userId', 'name phoneNumber');
-
-    if (!fare) {
-      return res.status(404).json({
-        success: false,
-        message: 'Fare not found for this user'
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Fare activated successfully',
-      data: fare
-    });
-  } catch (error) {
-    console.error('Error activating fare:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error occurred while activating fare',
       error: error.message
     });
   }
