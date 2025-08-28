@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vaagaiauto/presentation/pages/admin_addfare.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import '../bloc/driver/driver_bloc.dart';
@@ -233,6 +234,20 @@ class AdminPageState extends State<AdminPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (context) => AllUsersPage()),
+                          );
+                        },
+                      ),
+                      SizedBox(height: 8),
+                      _buildDrawerItem(
+                        icon: Icons.people_rounded,
+                        iconColor: Colors.black,
+                        textColor: Colors.black,
+                        title: 'Add Fare',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => AddFarePage(currentUserId: '',)),
                           );
                         },
                       ),
