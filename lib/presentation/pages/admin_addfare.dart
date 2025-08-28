@@ -4,9 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:vaagaiauto/data/services/fare_service.dart';
 
 class AddFarePage extends StatefulWidget {
-  final String currentUserId;
-
-  const AddFarePage({super.key, required this.currentUserId});
+  const AddFarePage({super.key});
 
   @override
   AddFarePageState createState() => AddFarePageState();
@@ -29,11 +27,10 @@ class AddFarePageState extends State<AddFarePage> {
   @override
   void initState() {
     super.initState();
-    print('AddFarePage initialized with userId: ${widget.currentUserId}');
-    _loadExistingFare();
+    print('AddFarePage initialized (Admin System)');
+    _loadExistingSystemFare();
   }
 
-  // Helper method to safely convert dynamic values to double
   double _safeToDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -42,7 +39,6 @@ class AddFarePageState extends State<AddFarePage> {
     return double.tryParse(value.toString()) ?? 0.0;
   }
 
-  // Helper method to safely convert dynamic values to string for text controllers
   String _safeToString(dynamic value) {
     if (value == null) return '0';
     if (value is String) return value;
@@ -50,15 +46,15 @@ class AddFarePageState extends State<AddFarePage> {
     return value.toString();
   }
 
-  Future<void> _loadExistingFare() async {
+  Future<void> _loadExistingSystemFare() async {
     setState(() {
       _isLoading = true;
-      _debugInfo = 'Loading fare data...';
+      _debugInfo = 'Loading system fare data...';
     });
 
     try {
-      print('Loading existing fare for userId: ${widget.currentUserId}');
-      final result = await FareService.getFareByUserId(widget.currentUserId);
+      print('Loading existing system fare...');
+      final result = await FareService.getSystemFare();
       
       print('Load result: $result');
       
@@ -66,10 +62,9 @@ class AddFarePageState extends State<AddFarePage> {
         final fareData = result['data'] as Map<String, dynamic>;
         setState(() {
           _hasExistingFare = true;
-          _debugInfo = 'Existing fare loaded successfully';
+          _debugInfo = 'Existing system fare loaded successfully';
         });
         
-        // Safely convert dynamic values to strings for text controllers
         _baseFareController.text = _safeToString(fareData['baseFare']);
         _waiting5Controller.text = _safeToString(fareData['waiting5min']);
         _waiting10Controller.text = _safeToString(fareData['waiting10min']);
@@ -78,13 +73,12 @@ class AddFarePageState extends State<AddFarePage> {
         _waiting25Controller.text = _safeToString(fareData['waiting25min']);
         _waiting30Controller.text = _safeToString(fareData['waiting30min']);
         
-        print('Loaded existing fare data: $fareData');
+        print('Loaded existing system fare data: $fareData');
       } else {
         setState(() {
           _hasExistingFare = false;
-          _debugInfo = 'No existing fare found - creating new';
+          _debugInfo = 'No existing system fare - creating new';
         });
-        // Set default values for new fare
         _waiting5Controller.text = '0';
         _waiting10Controller.text = '0';
         _waiting15Controller.text = '0';
@@ -92,10 +86,10 @@ class AddFarePageState extends State<AddFarePage> {
         _waiting25Controller.text = '0';
         _waiting30Controller.text = '0';
         
-        print('No existing fare found, using default values');
+        print('No existing system fare found, using default values');
       }
     } catch (e) {
-      print('Error loading existing fare: $e');
+      print('Error loading existing system fare: $e');
       setState(() {
         _debugInfo = 'Error loading fare: $e';
       });
@@ -161,7 +155,7 @@ class AddFarePageState extends State<AddFarePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _hasExistingFare ? 'Update Fare' : 'Add Fare',
+          'System Fare Configuration',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             color: Colors.black,
@@ -244,14 +238,14 @@ class AddFarePageState extends State<AddFarePage> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.local_taxi, color: Colors.white, size: 30),
+                            Icon(Icons.admin_panel_settings, color: Colors.white, size: 30),
                             SizedBox(width: 15),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Fare Configuration',
+                                    'Admin - System Fare',
                                     style: GoogleFonts.lato(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
@@ -260,8 +254,8 @@ class AddFarePageState extends State<AddFarePage> {
                                   ),
                                   Text(
                                     _hasExistingFare 
-                                        ? 'Update your fare rates & waiting charges'
-                                        : 'Set base fare & waiting charges',
+                                        ? 'Update system-wide fare configuration'
+                                        : 'Set system-wide fare & waiting charges',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.white70,
@@ -278,7 +272,7 @@ class AddFarePageState extends State<AddFarePage> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  'CONFIGURED',
+                                  'ACTIVE',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -313,31 +307,32 @@ class AddFarePageState extends State<AddFarePage> {
                   Expanded(
                     child: RefreshIndicator(
                       color: Colors.yellow,
-                      onRefresh: _loadExistingFare,
+                      onRefresh: _loadExistingSystemFare,
                       child: SingleChildScrollView(
                         physics: AlwaysScrollableScrollPhysics(),
                         padding: EdgeInsets.symmetric(horizontal: 16),
                         child: Column(
                           children: [
-                            // User ID Debug Info
+                            // System Info
                             Container(
                               margin: EdgeInsets.only(bottom: 16),
                               padding: EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.blue[50],
+                                color: Colors.orange[50],
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.blue[200]!),
+                                border: Border.all(color: Colors.orange[200]!),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.person, color: Colors.blue[600], size: 16),
+                                  Icon(Icons.info, color: Colors.orange[600], size: 16),
                                   SizedBox(width: 8),
-                                  Text(
-                                    'User ID: ${widget.currentUserId}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.blue[700],
-                                      fontFamily: 'monospace',
+                                  Expanded(
+                                    child: Text(
+                                      'This configuration applies to all drivers system-wide',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.orange[700],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -492,7 +487,7 @@ class AddFarePageState extends State<AddFarePage> {
                                 ],
                               ),
                               child: ElevatedButton(
-                                onPressed: _isUpdating ? null : _updateFares,
+                                onPressed: _isUpdating ? null : _updateSystemFares,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
@@ -514,9 +509,9 @@ class AddFarePageState extends State<AddFarePage> {
                                           ),
                                           SizedBox(width: 12),
                                           Text(
-                                            _hasExistingFare ? 'Updating...' : 'Creating...',
+                                            _hasExistingFare ? 'Updating System Fare...' : 'Creating System Fare...',
                                             style: GoogleFonts.lato(
-                                              fontSize: 16,
+                                              fontSize: 14,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.black,
                                             ),
@@ -524,7 +519,7 @@ class AddFarePageState extends State<AddFarePage> {
                                         ],
                                       )
                                     : Text(
-                                        _hasExistingFare ? 'Update Fares' : 'Create Fares',
+                                        _hasExistingFare ? 'Update System Fare' : 'Create System Fare',
                                         style: GoogleFonts.lato(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -612,10 +607,9 @@ class AddFarePageState extends State<AddFarePage> {
     );
   }
 
-  Future<void> _updateFares() async {
-    print('Update fares button pressed');
+  Future<void> _updateSystemFares() async {
+    print('Update system fares button pressed');
     
-    // Validate if at least base fare is entered
     if (_baseFareController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -626,7 +620,6 @@ class AddFarePageState extends State<AddFarePage> {
       return;
     }
 
-    // Safely parse base fare
     final baseFare = double.tryParse(_baseFareController.text);
     if (baseFare == null || baseFare <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -640,13 +633,12 @@ class AddFarePageState extends State<AddFarePage> {
 
     setState(() {
       _isUpdating = true;
-      _debugInfo = 'Saving fare data...';
+      _debugInfo = 'Saving system fare data...';
     });
 
     try {
-      print('Attempting to save fare with userId: ${widget.currentUserId}');
+      print('Attempting to save system fare');
       
-      // Safely parse all values with fallback to 0.0
       final waiting5min = double.tryParse(_waiting5Controller.text.isEmpty ? '0' : _waiting5Controller.text) ?? 0.0;
       final waiting10min = double.tryParse(_waiting10Controller.text.isEmpty ? '0' : _waiting10Controller.text) ?? 0.0;
       final waiting15min = double.tryParse(_waiting15Controller.text.isEmpty ? '0' : _waiting15Controller.text) ?? 0.0;
@@ -654,7 +646,7 @@ class AddFarePageState extends State<AddFarePage> {
       final waiting25min = double.tryParse(_waiting25Controller.text.isEmpty ? '0' : _waiting25Controller.text) ?? 0.0;
       final waiting30min = double.tryParse(_waiting30Controller.text.isEmpty ? '0' : _waiting30Controller.text) ?? 0.0;
       
-      print('Fare data to save:');
+      print('System fare data to save:');
       print('  baseFare: $baseFare');
       print('  waiting5min: $waiting5min');
       print('  waiting10min: $waiting10min');
@@ -663,8 +655,7 @@ class AddFarePageState extends State<AddFarePage> {
       print('  waiting25min: $waiting25min');
       print('  waiting30min: $waiting30min');
 
-      final result = await FareService.updateOrCreateFare(
-        userId: widget.currentUserId,
+      final result = await FareService.updateOrCreateSystemFare(
         baseFare: baseFare,
         waiting5min: waiting5min,
         waiting10min: waiting10min,
@@ -679,7 +670,7 @@ class AddFarePageState extends State<AddFarePage> {
       if (result['success']) {
         setState(() {
           _hasExistingFare = true;
-          _debugInfo = 'Fare saved successfully!';
+          _debugInfo = 'System fare saved successfully!';
         });
         
         ScaffoldMessenger.of(context).showSnackBar(
@@ -690,9 +681,8 @@ class AddFarePageState extends State<AddFarePage> {
           ),
         );
         
-        // Refresh the data to confirm it was saved
         await Future.delayed(Duration(seconds: 1));
-        await _loadExistingFare();
+        await _loadExistingSystemFare();
         
       } else {
         setState(() {
@@ -708,7 +698,7 @@ class AddFarePageState extends State<AddFarePage> {
         );
       }
     } catch (e) {
-      print('Exception during fare save: $e');
+      print('Exception during system fare save: $e');
       setState(() {
         _debugInfo = 'Exception: $e';
       });

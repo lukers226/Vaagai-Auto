@@ -2,10 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:vaagaiauto/core/constants/api_constants.dart';
 
-
 class FareService {
-  static Future<Map<String, dynamic>> updateOrCreateFare({
-    required String userId,
+  static Future<Map<String, dynamic>> updateOrCreateSystemFare({
     required double baseFare,
     required double waiting5min,
     required double waiting10min,
@@ -15,11 +13,10 @@ class FareService {
     required double waiting30min,
   }) async {
     try {
-      print('Sending fare data to server...');
+      print('Sending system fare data to server...');
       print('URL: ${ApiConstants.baseUrl}${ApiConstants.createFareEndpoint}');
       
       final requestBody = {
-        'userId': userId,
         'baseFare': baseFare,
         'waiting5min': waiting5min,
         'waiting10min': waiting10min,
@@ -47,14 +44,14 @@ class FareService {
         final data = jsonDecode(response.body);
         return {
           'success': true,
-          'message': data['message'] ?? 'Fare saved successfully',
+          'message': data['message'] ?? 'System fare saved successfully',
           'data': data['data']
         };
       } else {
         final errorData = jsonDecode(response.body);
         return {
           'success': false,
-          'message': errorData['message'] ?? 'Failed to save fare',
+          'message': errorData['message'] ?? 'Failed to save system fare',
           'data': null
         };
       }
@@ -68,44 +65,44 @@ class FareService {
     }
   }
 
-  static Future<Map<String, dynamic>> getFareByUserId(String userId) async {
+  static Future<Map<String, dynamic>> getSystemFare() async {
     try {
-      print('Fetching fare for userId: $userId');
+      print('Fetching system fare...');
       
       final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getFareEndpoint}/$userId'),
+        Uri.parse('${ApiConstants.baseUrl}${ApiConstants.getFareEndpoint}'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
       );
 
-      print('Get fare response status: ${response.statusCode}');
-      print('Get fare response body: ${response.body}');
+      print('Get system fare response status: ${response.statusCode}');
+      print('Get system fare response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
           'success': true,
-          'message': data['message'] ?? 'Fare retrieved successfully',
+          'message': data['message'] ?? 'System fare retrieved successfully',
           'data': data['data']
         };
       } else if (response.statusCode == 404) {
         return {
           'success': false,
-          'message': 'No fare found for this user',
+          'message': 'No system fare configuration found',
           'data': null
         };
       } else {
         final errorData = jsonDecode(response.body);
         return {
           'success': false,
-          'message': errorData['message'] ?? 'Failed to fetch fare',
+          'message': errorData['message'] ?? 'Failed to fetch system fare',
           'data': null
         };
       }
     } catch (e) {
-      print('Network error in getFareByUserId: $e');
+      print('Network error in getSystemFare: $e');
       return {
         'success': false,
         'message': 'Network error: Please check your internet connection',
@@ -114,7 +111,6 @@ class FareService {
     }
   }
 
-  // Test database connection
   static Future<Map<String, dynamic>> testConnection() async {
     try {
       final response = await http.get(

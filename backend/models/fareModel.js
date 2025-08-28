@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
 const fareSchema = new mongoose.Schema({
-  userId: {
+  // Remove userId requirement - make it admin-based system-wide fare
+  adminId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'User ID is required'],
-    index: true // Add index for better performance
+    required: [true, 'Admin ID is required']
   },
   baseFare: {
     type: Number,
@@ -45,24 +45,20 @@ const fareSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  isSystemDefault: {
+    type: Boolean,
+    default: true // Only one system-wide fare configuration
   }
 }, {
-  timestamps: true, // This will automatically create createdAt and updatedAt
-  collection: 'fares' // Explicitly set collection name
+  timestamps: true,
+  collection: 'fares'
 });
 
-// Create unique compound index to ensure one fare per user
-fareSchema.index({ userId: 1 }, { unique: true });
-
-// Add pre-save middleware for debugging
-fareSchema.pre('save', function(next) {
-  console.log('About to save fare document:', this.toObject());
-  next();
-});
-
-// Add post-save middleware for debugging
-fareSchema.post('save', function(doc) {
-  console.log('Successfully saved fare document:', doc.toObject());
+// Ensure only one active system fare exists
+fareSchema.index({ isSystemDefault: 1, isActive: 1 }, { 
+  unique: true,
+  partialFilterExpression: { isSystemDefault: true, isActive: true }
 });
 
 module.exports = mongoose.model('Fare', fareSchema);

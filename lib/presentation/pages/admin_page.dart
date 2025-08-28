@@ -247,7 +247,7 @@ class AdminPageState extends State<AdminPage> {
                           Navigator.pop(context);
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => AddFarePage(currentUserId: '',)),
+                            MaterialPageRoute(builder: (context) => AddFarePage()),
                           );
                         },
                       ),
