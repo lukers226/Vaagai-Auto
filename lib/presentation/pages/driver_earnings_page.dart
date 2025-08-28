@@ -6,13 +6,13 @@ import '../../data/services/api_service.dart';
 class DriverEarningsPage extends StatefulWidget {
   final UserModel user;
 
-  const DriverEarningsPage({Key? key, required this.user}) : super(key: key);
+  const DriverEarningsPage({super.key, required this.user});
 
   @override
-  _DriverEarningsPageState createState() => _DriverEarningsPageState();
+  DriverEarningsPageState createState() => DriverEarningsPageState();
 }
 
-class _DriverEarningsPageState extends State<DriverEarningsPage> {
+class DriverEarningsPageState extends State<DriverEarningsPage> {
   final ApiService _apiService = ApiService();
   
   // State variables for user stats
@@ -34,11 +34,11 @@ class _DriverEarningsPageState extends State<DriverEarningsPage> {
       });
 
       // Get user ID with validation
-      String userId = widget.user.id ?? '';
+      String userId = widget.user.id;
       
-      print('Loading earnings data for user ID: $userId');
+      debugPrint('Loading earnings data for user ID: $userId');
 
-      if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
+      if (userId.isEmpty) {
         throw Exception('Invalid user ID');
       }
 
@@ -68,7 +68,7 @@ class _DriverEarningsPageState extends State<DriverEarningsPage> {
           _isLoading = false;
         });
 
-        print('Earnings data loaded successfully: totalRides=$_totalRides, cancelledRides=$_cancelledRides');
+        debugPrint('Earnings data loaded successfully: totalRides=$_totalRides, cancelledRides=$_cancelledRides');
       } else {
         setState(() {
           _isLoading = false;
@@ -78,7 +78,7 @@ class _DriverEarningsPageState extends State<DriverEarningsPage> {
         });
       }
     } catch (e) {
-      print('Error loading earnings data: $e');
+      debugPrint('Error loading earnings data: $e');
       setState(() {
         _isLoading = false;
         // Set default values on error
@@ -114,7 +114,7 @@ class _DriverEarningsPageState extends State<DriverEarningsPage> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.08),
+                    color: Colors.grey.withValues(alpha: 0.08),
                     spreadRadius: 1,
                     blurRadius: 6,
                     offset: Offset(0, 2),
@@ -163,49 +163,6 @@ class _DriverEarningsPageState extends State<DriverEarningsPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildEarningCard(String period, String amount, IconData icon, Color color) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 18),
-              Spacer(),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text(
-            amount,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            period,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
       ),
     );
   }

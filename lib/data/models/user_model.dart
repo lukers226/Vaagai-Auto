@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class UserModel {
   final String id;
   final String phoneNumber;
@@ -12,19 +14,19 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    // DEBUG: Print the JSON being parsed
-    print('UserModel.fromJson - Raw JSON: $json');
+    // DEBUG: Log the JSON being parsed
+    debugPrint('UserModel.fromJson - Raw JSON: $json');
     
     String parsedId = json['_id'] ?? '';
     String parsedPhone = json['phoneNumber'] ?? '';
     String parsedType = json['userType'] ?? '';
     String? parsedName = json['name'];
     
-    print('UserModel.fromJson - Parsed Values:');
-    print('  ID: "$parsedId" (length: ${parsedId.length})');
-    print('  Phone: "$parsedPhone"');
-    print('  Type: "$parsedType"');
-    print('  Name: "$parsedName"');
+    debugPrint('UserModel.fromJson - Parsed Values:');
+    debugPrint('  ID: "$parsedId" (length: ${parsedId.length})');
+    debugPrint('  Phone: "$parsedPhone"');
+    debugPrint('  Type: "$parsedType"');
+    debugPrint('  Name: "$parsedName"');
     
     return UserModel(
       id: parsedId,

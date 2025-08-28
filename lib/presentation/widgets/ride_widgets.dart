@@ -21,7 +21,7 @@ class RideWidgets {
         color: Colors.yellow,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: Offset(0, 2),
           ),
@@ -81,7 +81,7 @@ class RideWidgets {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Color(0xFF00B562).withOpacity(0.1),
+                  color: Color(0xFF00B562).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
@@ -110,7 +110,7 @@ class RideWidgets {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.04),
+            color: Colors.white.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -150,7 +150,7 @@ class RideWidgets {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.yellow.withOpacity(0.1),
+              color: Colors.yellow.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -194,7 +194,7 @@ class RideWidgets {
       decoration: BoxDecoration(
         color: isGpsReady ? Color(0xFFECFDF3) : Color(0xFFFEF2F2),
         border: Border.all(
-          color: isGpsReady ? Color(0xFF00B562).withOpacity(0.2) : Colors.red.withOpacity(0.2),
+          color: isGpsReady ? Color(0xFF00B562).withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
         ),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -205,7 +205,7 @@ class RideWidgets {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isGpsReady ? Color(0xFF00B56).withOpacity(0.1) : Colors.red.withOpacity(0.1),
+              color: isGpsReady ? Color(0xFF00B562).withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
@@ -266,9 +266,8 @@ class RideWidgets {
   Widget buildStartRideUI({required VoidCallback onStartRide}) {
     return Column(
       children: [
-       
         SizedBox(height: 24),
-        Container(
+        SizedBox(
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
@@ -328,7 +327,7 @@ class RideWidgets {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -344,7 +343,7 @@ class RideWidgets {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: controller.getStatusColor().withOpacity(0.4),
+                  color: controller.getStatusColor().withValues(alpha: 0.4),
                   blurRadius: 4,
                   spreadRadius: 1,
                 ),
@@ -392,7 +391,7 @@ class RideWidgets {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: Offset(0, 8),
                 ),
@@ -434,7 +433,7 @@ class RideWidgets {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -445,7 +444,7 @@ class RideWidgets {
           Row(
             children: [
               Expanded(child: _buildMetric('Distance', '${controller.formatDistance()} km', Icons.straighten)),
-              Container(width: 1, height: 40, color: Colors.grey[200]),
+              SizedBox(width: 1, height: 40),
               Expanded(child: _buildMetric('Base Fare', '₹${controller.fare.toStringAsFixed(2)}', Icons.currency_rupee)),
             ],
           ),
@@ -454,7 +453,7 @@ class RideWidgets {
             Row(
               children: [
                 Expanded(child: _buildMetric('Waiting', '₹${controller.waitingCharge.toStringAsFixed(2)}', Icons.access_time)),
-                Container(width: 1, height: 40, color: Colors.grey[200]),
+                SizedBox(width: 1, height: 40),
                 Expanded(child: _buildMetric('Total Time', controller.formatTime(), Icons.timer)),
               ],
             ),
@@ -499,7 +498,7 @@ class RideWidgets {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -546,7 +545,7 @@ class RideWidgets {
   }
 
   Widget _buildEndRideButton(VoidCallback onPressed) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
@@ -612,7 +611,7 @@ class RideWidgets {
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: Color(0xFF00B562).withOpacity(0.1),
+                        color: Color(0xFF00B562).withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -681,7 +680,7 @@ class RideWidgets {
                     ),
                     SizedBox(height: 20),
                     // Share Customer Button
-                    Container(
+                    SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(

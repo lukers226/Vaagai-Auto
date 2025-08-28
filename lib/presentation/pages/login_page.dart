@@ -10,11 +10,13 @@ import 'admin_page.dart';
 import 'driver_home_page.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
-  _LoginPageState createState() => _LoginPageState();
+  LoginPageState createState() => LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
   final TextEditingController _phoneController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late AnimationController _animationController;
@@ -58,28 +60,30 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       if (isLoggedIn && phoneNumber.isNotEmpty) {
         // User is already logged in, navigate to appropriate page
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (userType == 'admin') {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => AdminPage()),
-            );
-          } else {
-            // Create user model from stored data
-            final userModel = UserModel(
-              name: userName,
-              phoneNumber: phoneNumber,
-              userType: userType,
-              id: '',
-            );
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => DriverHomePage(user: userModel),
-              ),
-            );
+          if (mounted) {
+            if (userType == 'admin') {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => AdminPage()),
+              );
+            } else {
+              // Create user model from stored data
+              final userModel = UserModel(
+                name: userName,
+                phoneNumber: phoneNumber,
+                userType: userType,
+                id: '',
+              );
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => DriverHomePage(user: userModel),
+                ),
+              );
+            }
           }
         });
       }
     } catch (e) {
-      print('Error checking login status: $e');
+      debugPrint('Error checking login status: $e');
     }
   }
 
@@ -93,21 +97,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       await prefs.setString('user_name', state.user.name ?? '');
       await prefs.setString('login_timestamp', DateTime.now().toIso8601String());
     } catch (e) {
-      print('Error saving login status: $e');
-    }
-  }
-
-  // Clear login status from local storage
-  static Future<void> clearLoginStatus() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('is_logged_in');
-      await prefs.remove('user_type');
-      await prefs.remove('phone_number');
-      await prefs.remove('user_name');
-      await prefs.remove('login_timestamp');
-    } catch (e) {
-      print('Error clearing login status: $e');
+      debugPrint('Error saving login status: $e');
     }
   }
 
@@ -143,7 +133,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     
     // Auto dismiss after 1 second
     Future.delayed(Duration(seconds: 1), () {
-      if (Navigator.of(context).canPop()) {
+      if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
     });
@@ -163,53 +153,57 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             
             // Navigate after animation
             Future.delayed(Duration(seconds: 1), () {
-              if (state.user.userType == 'admin') {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => AdminPage()),
-                );
-              } else {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => DriverHomePage(user: state.user),
-                  ),
-                );
+              if (mounted) {
+                if (state.user.userType == 'admin') {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => AdminPage()),
+                  );
+                } else {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => DriverHomePage(user: state.user),
+                    ),
+                  );
+                }
               }
             });
           } else if (state is AuthFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    Icon(Icons.error_outline, color: Colors.white, size: 24),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Login Failed..Please check network connection',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.white, size: 24),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Login Failed..Please check network connection',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                          Text(
-                            state.message,
-                            style: TextStyle(fontSize: 14),
-                          ),
-                        ],
+                            Text(
+                              state.message,
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  backgroundColor: Colors.red[600],
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  margin: EdgeInsets.all(16),
+                  duration: Duration(seconds: 4),
                 ),
-                backgroundColor: Colors.red[600],
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                margin: EdgeInsets.all(16),
-                duration: Duration(seconds: 4),
-              ),
-            );
+              );
+            }
           }
         },
         builder: (context, state) {
@@ -236,13 +230,13 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                             borderRadius: BorderRadius.circular(25),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.amber.withOpacity(0.3),
+                                color: Colors.amber.withValues(alpha: 0.3),
                                 spreadRadius: 8,
                                 blurRadius: 20,
                                 offset: Offset(0, 8),
                               ),
                               BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
+                                color: Colors.grey.withValues(alpha: 0.1),
                                 spreadRadius: 2,
                                 blurRadius: 10,
                                 offset: Offset(0, 4),
@@ -311,7 +305,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.15),
+                              color: Colors.grey.withValues(alpha: 0.15),
                               spreadRadius: 3,
                               blurRadius: 15,
                               offset: Offset(0, 5),
@@ -422,7 +416,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                   boxShadow: [
                                     BoxShadow(
                                       color: (state is AuthLoading ? Colors.grey : Colors.amber)
-                                          .withOpacity(0.3),
+                                          .withValues(alpha: 0.3),
                                       spreadRadius: 1,
                                       blurRadius: 8,
                                       offset: Offset(0, 4),

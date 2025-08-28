@@ -7,6 +7,8 @@ import 'presentation/pages/splash_page.dart';
 import 'injection_container.dart' as di;
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(

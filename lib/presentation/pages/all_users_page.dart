@@ -6,11 +6,13 @@ import '../bloc/driver/driver_event.dart';
 import '../bloc/driver/driver_state.dart';
 
 class AllUsersPage extends StatefulWidget {
+  const AllUsersPage({super.key});
+
   @override
-  _AllUsersPageState createState() => _AllUsersPageState();
+  AllUsersPageState createState() => AllUsersPageState();
 }
 
-class _AllUsersPageState extends State<AllUsersPage> {
+class AllUsersPageState extends State<AllUsersPage> {
   @override
   void initState() {
     super.initState();
@@ -75,7 +77,7 @@ class _AllUsersPageState extends State<AllUsersPage> {
                   'phoneNumber': driver.phoneNumber,
                   'userType': 'driver',
                   'createdAt': driver.createdAt,
-                }).toList(),
+                }),
               ];
 
               return Column(
@@ -86,12 +88,12 @@ class _AllUsersPageState extends State<AllUsersPage> {
                     padding: EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.black!, Colors.black!],
+                        colors: [Colors.black, Colors.black],
                       ),
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blue.withOpacity(0.3),
+                          color: Colors.blue.withValues(alpha: 0.3),
                           spreadRadius: 2,
                           blurRadius: 10,
                           offset: Offset(0, 3),
@@ -175,7 +177,7 @@ class _AllUsersPageState extends State<AllUsersPage> {
                               borderRadius: BorderRadius.circular(15),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.grey.withOpacity(0.1),
+                                  color: Colors.grey.withValues(alpha: 0.1),
                                   spreadRadius: 1,
                                   blurRadius: 6,
                                   offset: Offset(0, 2),
@@ -330,7 +332,7 @@ class _AllUsersPageState extends State<AllUsersPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 6,
             offset: Offset(0, 2),

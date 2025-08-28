@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/driver_model.dart';
@@ -11,14 +12,14 @@ class ApiService {
   static const int _maxRetries = 3;
 
   Future<UserModel?> login(String phoneNumber) async {
-    print('Attempting to connect to: ${ApiConstants.baseUrl}${ApiConstants.loginEndpoint}');
+    debugPrint('Attempting to connect to: ${ApiConstants.baseUrl}${ApiConstants.loginEndpoint}');
     
     for (int attempt = 1; attempt <= _maxRetries; attempt++) {
       try {
-        print('Login attempt $attempt of $_maxRetries...');
+        debugPrint('Login attempt $attempt of $_maxRetries...');
         
         if (attempt > 1) {
-          print('Retrying... (Server might be waking up)');
+          debugPrint('Retrying... (Server might be waking up)');
           await Future.delayed(Duration(seconds: 5));
         }
         
@@ -31,8 +32,8 @@ class ApiService {
           body: jsonEncode({'phoneNumber': phoneNumber}),
         ).timeout(_timeout);
 
-        print('Response status: ${response.statusCode}');
-        print('Response body: ${response.body}');
+        debugPrint('Response status: ${response.statusCode}');
+        debugPrint('Response body: ${response.body}');
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -41,33 +42,33 @@ class ApiService {
           throw Exception('Server returned ${response.statusCode}');
         }
         
-      } on TimeoutException catch (e) {
-        print('TimeoutException on attempt $attempt: $e');
+      } on TimeoutException {
+        debugPrint('TimeoutException on attempt $attempt');
         if (attempt == _maxRetries) {
           throw Exception('Connection timeout. Server might be starting up, please try again in a moment.');
         }
         continue;
         
-      } on SocketException catch (e) {
-        print('SocketException: $e');
+      } on SocketException {
+        debugPrint('SocketException on attempt $attempt');
         if (attempt == _maxRetries) {
           throw Exception('Cannot connect to server. Please check your network connection.');
         }
         continue;
         
-      } on HttpException catch (e) {
-        print('HttpException: $e');
+      } on HttpException {
+        debugPrint('HttpException on attempt $attempt');
         if (attempt == _maxRetries) {
           throw Exception('HTTP Error occurred');
         }
         continue;
         
-      } on FormatException catch (e) {
-        print('FormatException: $e');
+      } on FormatException {
+        debugPrint('FormatException on attempt $attempt');
         throw Exception('Invalid response format');
         
       } catch (e) {
-        print('General Exception on attempt $attempt: $e');
+        debugPrint('General Exception on attempt $attempt: $e');
         if (attempt == _maxRetries) {
           throw Exception('Login failed: Unable to connect to server');
         }
@@ -99,7 +100,7 @@ class ApiService {
 
         return response.statusCode == 201;
         
-      } on TimeoutException catch (e) {
+      } on TimeoutException {
         if (attempt == _maxRetries) {
           throw Exception('Connection timeout. Please try again.');
         }
@@ -137,7 +138,7 @@ class ApiService {
         }
         return [];
         
-      } on TimeoutException catch (e) {
+      } on TimeoutException {
         if (attempt == _maxRetries) {
           throw Exception('Connection timeout. Please try again.');
         }
@@ -154,12 +155,12 @@ class ApiService {
 
   // FIXED: Update cancelled rides count with correct route
   Future<bool> updateCancelledRides(String userId) async {
-    print('Updating cancelled rides for user: $userId');
+    debugPrint('Updating cancelled rides for user: $userId');
     
     for (int attempt = 1; attempt <= _maxRetries; attempt++) {
       try {
         if (attempt > 1) {
-          print('Retrying cancelled rides update... attempt $attempt');
+          debugPrint('Retrying cancelled rides update... attempt $attempt');
           await Future.delayed(Duration(seconds: attempt * 2)); // Progressive delay
         }
         
@@ -176,13 +177,13 @@ class ApiService {
           }),
         ).timeout(_timeout);
 
-        print('Cancel ride response status: ${response.statusCode}');
-        print('Cancel ride response body: ${response.body}');
+        debugPrint('Cancel ride response status: ${response.statusCode}');
+        debugPrint('Cancel ride response body: ${response.body}');
 
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
           if (responseData['success'] == true) {
-            print('Cancelled rides updated successfully');
+            debugPrint('Cancelled rides updated successfully');
             return true;
           } else {
             throw Exception('API returned success: false - ${responseData['error'] ?? 'Unknown error'}');
@@ -190,35 +191,35 @@ class ApiService {
         } else if (response.statusCode == 404) {
           // Handle 404 specifically - driver not found
           final errorData = jsonDecode(response.body);
-          print('Driver not found: ${errorData['error']}');
+          debugPrint('Driver not found: ${errorData['error']}');
           return false; // Return false instead of throwing exception
         } else {
           throw Exception('Server returned ${response.statusCode}');
         }
         
-      } on TimeoutException catch (e) {
-        print('TimeoutException on cancelled rides update attempt $attempt: $e');
+      } on TimeoutException {
+        debugPrint('TimeoutException on cancelled rides update attempt $attempt');
         if (attempt == _maxRetries) {
           return false;
         }
         continue;
         
-      } on SocketException catch (e) {
-        print('SocketException on cancelled rides update: $e');
+      } on SocketException {
+        debugPrint('SocketException on cancelled rides update attempt $attempt');
         if (attempt == _maxRetries) {
           return false;
         }
         continue;
         
-      } on FormatException catch (e) {
-        print('FormatException on cancelled rides update: $e');
+      } on FormatException {
+        debugPrint('FormatException on cancelled rides update attempt $attempt');
         if (attempt == _maxRetries) {
           return false;
         }
         continue;
         
       } catch (e) {
-        print('Error updating cancelled rides on attempt $attempt: $e');
+        debugPrint('Error updating cancelled rides on attempt $attempt: $e');
         if (attempt == _maxRetries) {
           return false;
         }
@@ -235,12 +236,12 @@ class ApiService {
     required double rideEarnings,
     required Map<String, dynamic> tripData,
   }) async {
-    print('Updating completed ride for user: $userId with earnings: $rideEarnings');
+    debugPrint('Updating completed ride for user: $userId with earnings: $rideEarnings');
     
     for (int attempt = 1; attempt <= _maxRetries; attempt++) {
       try {
         if (attempt > 1) {
-          print('Retrying completed ride update... attempt $attempt');
+          debugPrint('Retrying completed ride update... attempt $attempt');
           await Future.delayed(Duration(seconds: attempt * 2)); // Progressive delay
         }
         
@@ -257,13 +258,13 @@ class ApiService {
           }),
         ).timeout(_timeout);
 
-        print('Complete ride response status: ${response.statusCode}');
-        print('Complete ride response body: ${response.body}');
+        debugPrint('Complete ride response status: ${response.statusCode}');
+        debugPrint('Complete ride response body: ${response.body}');
 
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
           if (responseData['success'] == true) {
-            print('Completed ride updated successfully');
+            debugPrint('Completed ride updated successfully');
             return true;
           } else {
             throw Exception('API returned success: false - ${responseData['error'] ?? 'Unknown error'}');
@@ -271,35 +272,35 @@ class ApiService {
         } else if (response.statusCode == 404) {
           // Handle 404 specifically - driver not found
           final errorData = jsonDecode(response.body);
-          print('Driver not found: ${errorData['error']}');
+          debugPrint('Driver not found: ${errorData['error']}');
           return false;
         } else {
           throw Exception('Server returned ${response.statusCode}');
         }
         
-      } on TimeoutException catch (e) {
-        print('TimeoutException on completed ride update attempt $attempt: $e');
+      } on TimeoutException {
+        debugPrint('TimeoutException on completed ride update attempt $attempt');
         if (attempt == _maxRetries) {
           return false;
         }
         continue;
         
-      } on SocketException catch (e) {
-        print('SocketException on completed ride update: $e');
+      } on SocketException {
+        debugPrint('SocketException on completed ride update attempt $attempt');
         if (attempt == _maxRetries) {
           return false;
         }
         continue;
         
-      } on FormatException catch (e) {
-        print('FormatException on completed ride update: $e');
+      } on FormatException {
+        debugPrint('FormatException on completed ride update attempt $attempt');
         if (attempt == _maxRetries) {
           return false;
         }
         continue;
         
       } catch (e) {
-        print('Error updating completed ride on attempt $attempt: $e');
+        debugPrint('Error updating completed ride on attempt $attempt: $e');
         if (attempt == _maxRetries) {
           return false;
         }
@@ -312,12 +313,12 @@ class ApiService {
 
   // NEW: Get user statistics for profile page
   Future<Map<String, dynamic>?> getUserStats(String userId) async {
-    print('Getting user stats for user: $userId');
+    debugPrint('Getting user stats for user: $userId');
     
     for (int attempt = 1; attempt <= _maxRetries; attempt++) {
       try {
         if (attempt > 1) {
-          print('Retrying get user stats... attempt $attempt');
+          debugPrint('Retrying get user stats... attempt $attempt');
           await Future.delayed(Duration(seconds: attempt * 2));
         }
         
@@ -330,47 +331,47 @@ class ApiService {
           },
         ).timeout(_timeout);
 
-        print('User stats response status: ${response.statusCode}');
-        print('User stats response body: ${response.body}');
+        debugPrint('User stats response status: ${response.statusCode}');
+        debugPrint('User stats response body: ${response.body}');
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
-            print('User stats loaded successfully: ${data['data']}');
+            debugPrint('User stats loaded successfully: ${data['data']}');
             return data['data'];
           } else {
             throw Exception('API returned success: false - ${data['error'] ?? 'Unknown error'}');
           }
         } else if (response.statusCode == 404) {
-          print('User not found');
+          debugPrint('User not found');
           return null;
         } else {
           throw Exception('Server returned ${response.statusCode}');
         }
         
-      } on TimeoutException catch (e) {
-        print('TimeoutException on get user stats attempt $attempt: $e');
+      } on TimeoutException {
+        debugPrint('TimeoutException on get user stats attempt $attempt');
         if (attempt == _maxRetries) {
           return null;
         }
         continue;
         
-      } on SocketException catch (e) {
-        print('SocketException on get user stats: $e');
+      } on SocketException {
+        debugPrint('SocketException on get user stats attempt $attempt');
         if (attempt == _maxRetries) {
           return null;
         }
         continue;
         
-      } on FormatException catch (e) {
-        print('FormatException on get user stats: $e');
+      } on FormatException {
+        debugPrint('FormatException on get user stats attempt $attempt');
         if (attempt == _maxRetries) {
           return null;
         }
         continue;
         
       } catch (e) {
-        print('Error getting user stats on attempt $attempt: $e');
+        debugPrint('Error getting user stats on attempt $attempt: $e');
         if (attempt == _maxRetries) {
           return null;
         }
@@ -383,12 +384,12 @@ class ApiService {
 
   // FIXED: Get updated driver stats with correct route
   Future<Map<String, dynamic>?> getDriverStats(String userId) async {
-    print('Getting driver stats for user: $userId');
+    debugPrint('Getting driver stats for user: $userId');
     
     for (int attempt = 1; attempt <= _maxRetries; attempt++) {
       try {
         if (attempt > 1) {
-          print('Retrying get driver stats... attempt $attempt');
+          debugPrint('Retrying get driver stats... attempt $attempt');
           await Future.delayed(Duration(seconds: attempt * 2));
         }
         
@@ -401,8 +402,8 @@ class ApiService {
           },
         ).timeout(_timeout);
 
-        print('Driver stats response status: ${response.statusCode}');
-        print('Driver stats response body: ${response.body}');
+        debugPrint('Driver stats response status: ${response.statusCode}');
+        debugPrint('Driver stats response body: ${response.body}');
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -412,35 +413,35 @@ class ApiService {
             throw Exception('API returned success: false - ${data['error'] ?? 'Unknown error'}');
           }
         } else if (response.statusCode == 404) {
-          print('Driver not found');
+          debugPrint('Driver not found');
           return null;
         } else {
           throw Exception('Server returned ${response.statusCode}');
         }
         
-      } on TimeoutException catch (e) {
-        print('TimeoutException on get driver stats attempt $attempt: $e');
+      } on TimeoutException {
+        debugPrint('TimeoutException on get driver stats attempt $attempt');
         if (attempt == _maxRetries) {
           return null;
         }
         continue;
         
-      } on SocketException catch (e) {
-        print('SocketException on get driver stats: $e');
+      } on SocketException {
+        debugPrint('SocketException on get driver stats attempt $attempt');
         if (attempt == _maxRetries) {
           return null;
         }
         continue;
         
-      } on FormatException catch (e) {
-        print('FormatException on get driver stats: $e');
+      } on FormatException {
+        debugPrint('FormatException on get driver stats attempt $attempt');
         if (attempt == _maxRetries) {
           return null;
         }
         continue;
         
       } catch (e) {
-        print('Error getting driver stats on attempt $attempt: $e');
+        debugPrint('Error getting driver stats on attempt $attempt: $e');
         if (attempt == _maxRetries) {
           return null;
         }
@@ -461,7 +462,7 @@ class ApiService {
       
       return response.statusCode == 200;
     } catch (e) {
-      print('Health check failed: $e');
+      debugPrint('Health check failed: $e');
       return false;
     }
   }

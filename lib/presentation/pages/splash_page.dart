@@ -3,20 +3,20 @@ import '../../core/constants/app_constants.dart';
 import 'login_page.dart';
 
 class SplashPage extends StatefulWidget {
+  const SplashPage({super.key});
+
   @override
-  _SplashPageState createState() => _SplashPageState();
+  SplashPageState createState() => SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
+class SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   late AnimationController _scaleController;
   late AnimationController _leftTextController;
   late AnimationController _rightTextController;
-  late AnimationController _fadeController;
   
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _leftTextAnimation;
   late Animation<Offset> _rightTextAnimation;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -35,11 +35,6 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     
     _rightTextController = AnimationController(
       duration: Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    
-    _fadeController = AnimationController(
-      duration: Duration(milliseconds: 800),
       vsync: this,
     );
     
@@ -70,14 +65,6 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       curve: Curves.easeOutBack,
     ));
     
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    ));
-    
     // Start animations
     _startAnimations();
     _navigateToLogin();
@@ -86,23 +73,23 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   void _startAnimations() async {
     // Start image scale animation
     await Future.delayed(Duration(milliseconds: 300));
-    _scaleController.forward();
+    if (mounted) _scaleController.forward();
     
     // Start both text animations simultaneously with slight delay
     await Future.delayed(Duration(milliseconds: 600));
-    _leftTextController.forward();
-    _rightTextController.forward();
-    
-    // Start loading indicator fade animation
-    await Future.delayed(Duration(milliseconds: 400));
-    _fadeController.forward();
+    if (mounted) {
+      _leftTextController.forward();
+      _rightTextController.forward();
+    }
   }
 
   _navigateToLogin() async {
     await Future.delayed(Duration(seconds: AppConstants.splashDuration));
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => LoginPage()),
-    );
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => LoginPage()),
+      );
+    }
   }
 
   @override
@@ -110,7 +97,6 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     _scaleController.dispose();
     _leftTextController.dispose();
     _rightTextController.dispose();
-    _fadeController.dispose();
     super.dispose();
   }
 
@@ -138,7 +124,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
               // Animated Image in Center
               ScaleTransition(
                 scale: _scaleAnimation,
-                child: Container(
+                child: SizedBox(
                   width: 180,
                   height: 180,
                   child: ClipRRect(
@@ -165,10 +151,11 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                   ),
                 ),
               ),
- 
+
+              SizedBox(height: 30),
               
               // Animated App Name with Split Text Animation
-              Container(
+              SizedBox(
                 height: 50, // Fixed height to prevent layout shifts
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -188,7 +175,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                             Shadow(
                               offset: Offset(0, 2),
                               blurRadius: 4,
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                             ),
                           ],
                         ),
@@ -211,7 +198,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                             Shadow(
                               offset: Offset(0, 2),
                               blurRadius: 4,
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                             ),
                           ],
                         ),
@@ -220,7 +207,6 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-           
             ],
           ),
         ),

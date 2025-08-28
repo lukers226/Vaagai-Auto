@@ -12,11 +12,13 @@ import 'all_users_page.dart';
 import 'login_page.dart';
 
 class AdminPage extends StatefulWidget {
+  const AdminPage({super.key});
+
   @override
-  _AdminPageState createState() => _AdminPageState();
+  AdminPageState createState() => AdminPageState();
 }
 
-class _AdminPageState extends State<AdminPage> {
+class AdminPageState extends State<AdminPage> {
   @override
   void initState() {
     super.initState();
@@ -50,9 +52,11 @@ class _AdminPageState extends State<AdminPage> {
                 // Clear local storage
                 await _clearLoginStatus();
                 
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => LoginPage()),
-                );
+                if (mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => LoginPage()),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -76,7 +80,7 @@ class _AdminPageState extends State<AdminPage> {
       await prefs.remove('user_name');
       await prefs.remove('login_timestamp');
     } catch (e) {
-      print('Error clearing login status: $e');
+      debugPrint('Error clearing login status: $e');
     }
   }
 
@@ -100,7 +104,7 @@ class _AdminPageState extends State<AdminPage> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Colors.white!, Colors.white!],
+              colors: [Colors.white, Colors.white],
               stops: [0.0, 1.0],
             ),
           ),
@@ -115,8 +119,8 @@ class _AdminPageState extends State<AdminPage> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.yellow[800]!.withOpacity(0.9), 
-                      Colors.yellow[800]!.withOpacity(0.7)
+                      Colors.yellow[800]!.withValues(alpha: 0.9), 
+                      Colors.yellow[800]!.withValues(alpha: 0.7)
                     ],
                   ),
                   borderRadius: BorderRadius.only(
@@ -131,10 +135,10 @@ class _AdminPageState extends State<AdminPage> {
                       padding: EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             spreadRadius: 2,
                             blurRadius: 10,
                             offset: Offset(0, 4),
@@ -174,7 +178,7 @@ class _AdminPageState extends State<AdminPage> {
                           Shadow(
                             offset: Offset(0, 2),
                             blurRadius: 4,
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                           ),
                         ],
                       ),
@@ -183,14 +187,14 @@ class _AdminPageState extends State<AdminPage> {
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                       ),
                       child: Text(
                         'Auto Meter System',
                         style: GoogleFonts.lato(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 0.5,
@@ -243,7 +247,7 @@ class _AdminPageState extends State<AdminPage> {
                           final result = await Navigator.of(context).push(
                             MaterialPageRoute(builder: (context) => AddDriverPage()),
                           );
-                          if (result == true) {
+                          if (mounted && result == true) {
                             context.read<DriverBloc>().add(LoadDriversRequested());
                           }
                         },
@@ -260,7 +264,7 @@ class _AdminPageState extends State<AdminPage> {
                           gradient: LinearGradient(
                             colors: [
                               Colors.transparent,
-                              Colors.grey.withOpacity(0.4),
+                              Colors.grey.withValues(alpha: 0.4),
                               Colors.transparent,
                             ],
                           ),
@@ -354,12 +358,12 @@ class _AdminPageState extends State<AdminPage> {
                     padding: EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.black!, Colors.black!],
+                        colors: [Colors.black, Colors.black],
                       ),
                       borderRadius: BorderRadius.circular(15),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.yellow.withOpacity(0.3),
+                          color: Colors.yellow.withValues(alpha: 0.3),
                           spreadRadius: 2,
                           blurRadius: 10,
                           offset: Offset(0, 3),
@@ -399,7 +403,7 @@ class _AdminPageState extends State<AdminPage> {
                               final result = await Navigator.of(context).push(
                                 MaterialPageRoute(builder: (context) => AddDriverPage()),
                               );
-                              if (result == true) {
+                              if (mounted && result == true) {
                                 context.read<DriverBloc>().add(LoadDriversRequested());
                               }
                             },
@@ -466,7 +470,7 @@ class _AdminPageState extends State<AdminPage> {
                                     borderRadius: BorderRadius.circular(15),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.grey.withOpacity(0.1),
+                                        color: Colors.grey.withValues(alpha: 0.1),
                                         spreadRadius: 1,
                                         blurRadius: 6,
                                         offset: Offset(0, 2),
@@ -623,17 +627,17 @@ class _AdminPageState extends State<AdminPage> {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
-          splashColor: Colors.white.withOpacity(0.1),
-          highlightColor: Colors.white.withOpacity(0.05),
+          splashColor: Colors.white.withValues(alpha: 0.1),
+          highlightColor: Colors.white.withValues(alpha: 0.05),
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               color: isSelected 
-                  ? Colors.white.withOpacity(0.15)
+                  ? Colors.white.withValues(alpha: 0.15)
                   : Colors.transparent,
               border: isSelected 
-                  ? Border.all(color: Colors.white.withOpacity(0.3))
+                  ? Border.all(color: Colors.white.withValues(alpha: 0.3))
                   : null,
             ),
             child: Row(
@@ -642,14 +646,14 @@ class _AdminPageState extends State<AdminPage> {
                   padding: EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: isSelected 
-                        ? Colors.white.withOpacity(0.2)
-                        : Colors.white.withOpacity(0.1),
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
                     color: iconColor ?? 
-                           (isSelected ? Colors.white : Colors.white.withOpacity(0.9)),
+                           (isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9)),
                     size: 22,
                   ),
                 ),
@@ -659,7 +663,7 @@ class _AdminPageState extends State<AdminPage> {
                     title,
                     style: TextStyle(
                       color: textColor ?? 
-                             (isSelected ? Colors.white : Colors.white.withOpacity(0.9)),
+                             (isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9)),
                       fontSize: 16,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       letterSpacing: 0.5,

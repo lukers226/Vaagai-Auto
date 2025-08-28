@@ -31,8 +31,8 @@ class RideController {
   double totalDistanceTravelled = 0.0;
   
   // Location tracking settings
-  static const double MOVEMENT_THRESHOLD = 3.0;
-  static const int LOCATION_UPDATE_INTERVAL = 2;
+  static const double movementThreshold = 3.0;
+  static const int locationUpdateInterval = 2;
   
   // Location permission and service status
   bool isLocationServiceEnabled = false;
@@ -223,7 +223,7 @@ class RideController {
       onStatusChange?.call();
     });
 
-    locationTimer = Timer.periodic(Duration(seconds: LOCATION_UPDATE_INTERVAL), (timer) async {
+    locationTimer = Timer.periodic(Duration(seconds: locationUpdateInterval), (timer) async {
       if (!isMeterOn) return;
       await _updateLocation();
     });
@@ -261,7 +261,7 @@ class RideController {
           newPosition.longitude,
         );
 
-        if (distanceInMeters >= MOVEMENT_THRESHOLD && newPosition.accuracy <= 20) {
+        if (distanceInMeters >= movementThreshold && newPosition.accuracy <= 20) {
           isMoving = true;
           double distanceInKm = distanceInMeters / 1000;
           distance += distanceInKm;
@@ -274,7 +274,7 @@ class RideController {
           onStatusChange?.call();
         }
 
-        if (distanceInMeters < MOVEMENT_THRESHOLD) {
+        if (distanceInMeters < movementThreshold) {
           lastPosition = newPosition;
         }
       } else {
@@ -285,7 +285,7 @@ class RideController {
       onLocationUpdate?.call();
 
     } catch (e) {
-      print('Location update error: $e');
+      debugPrint('Location update error: $e');
     }
   }
 

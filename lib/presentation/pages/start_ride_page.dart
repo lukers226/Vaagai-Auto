@@ -27,10 +27,8 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   final ScreenshotController _screenshotController = ScreenshotController();
   final ApiService _apiService = ApiService();
 
-  // Add this flag to track widget state
   bool _isDisposed = false;
 
-  // Animations
   late AnimationController _pulseController;
   late AnimationController _slideController;
   late Animation<double> _pulseAnimation;
@@ -40,22 +38,9 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    
-    // DEBUG: Print user information
-    print('StartRidePage - User Info:');
-    print('User ID: ${widget.user.id}');
-    print('User Name: ${widget.user.name}');
-    print('User Phone: ${widget.user.phoneNumber}');
-    print('User Type: ${widget.user.userType}');
-    
-    // Initialize controllers
     _rideController = RideController();
     _widgets = RideWidgets(context);
-    
-    // Initialize animations
     _initializeAnimations();
-    
-    // Initialize ride controller
     _rideController.initialize(
       onLocationUpdate: _onLocationUpdate,
       onStatusChange: _onStatusChange,
@@ -68,7 +53,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       duration: Duration(milliseconds: 2000),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _slideController = AnimationController(
       duration: Duration(milliseconds: 800),
       vsync: this,
@@ -107,16 +92,11 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
 
   void _showSnackBar(String message, bool isSuccess) {
     if (!mounted || _isDisposed) return;
-    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(
-              isSuccess ? Icons.check_circle : Icons.error,
-              color: Colors.white,
-              size: 20,
-            ),
+            Icon(isSuccess ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
             SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
@@ -145,7 +125,6 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
 
   void _showCancelRideConfirmation() {
     if (!mounted || _isDisposed) return;
-    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -159,34 +138,24 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 60, height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    shape: BoxShape.circle,
+                    color: Colors.red.withOpacity(0.1), shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.warning, color: Colors.red[600], size: 30),
                 ),
                 SizedBox(height: 20),
                 Text(
                   'Confirm Cancel Ride',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87),
                 ),
                 SizedBox(height: 12),
                 Text(
-                  _rideController.isMeterOn 
-                    ? 'Are you sure you want to cancel the ongoing ride? This action cannot be undone.'
-                    : 'Are you sure you want to cancel and go back to the homepage?',
+                  _rideController.isMeterOn
+                      ? 'Are you sure you want to cancel the ongoing ride? This action cannot be undone.'
+                      : 'Are you sure you want to cancel and go back to the homepage?',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    height: 1.4,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.4),
                 ),
                 SizedBox(height: 24),
                 Row(
@@ -194,9 +163,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          if (mounted && !_isDisposed) {
-                            Navigator.pop(context);
-                          }
+                          if (mounted && !_isDisposed) Navigator.pop(context);
                         },
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: Colors.grey[300]!),
@@ -235,55 +202,24 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  // FIXED: Cancel ride with proper mounted checks and API route
   Future<void> _cancelRideAndRedirect() async {
     if (!mounted || _isDisposed) return;
-    
     _rideController.cancelRide();
-    
     try {
-      // Get user ID with detailed debugging
       String userId = widget.user.id ?? '';
-      
-      print('DEBUG Cancel Ride:');
-      print('Raw User ID: "$userId"');
-      print('User ID Length: ${userId.length}');
-      print('User ID isEmpty: ${userId.isEmpty}');
-      print('User Name: ${widget.user.name}');
-      print('User Phone: ${widget.user.phoneNumber}');
-      
-      // Validate user ID
       if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
-        print('ERROR: Invalid user ID detected');
-        if (mounted && !_isDisposed) {
-          _showSnackBar('Error: User session invalid. Please login again.', false);
-          Navigator.of(context).pop();
-        }
+        _showSnackBar('Error: User session invalid. Please login again.', false);
+        Navigator.of(context).pop();
         return;
       }
-
-      // Additional validation for MongoDB ObjectId format
       if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
-        print('ERROR: User ID is not a valid MongoDB ObjectId format');
-        if (mounted && !_isDisposed) {
-          _showSnackBar('Error: Invalid user ID format. Please login again.', false);
-          Navigator.of(context).pop();
-        }
+        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
+        Navigator.of(context).pop();
         return;
       }
-
-      print('SUCCESS: User ID validation passed, calling API...');
-
-      // Show loading
-      if (mounted && !_isDisposed) {
-        _showSnackBar('Updating database...', true);
-      }
-
-      // Update cancelled rides in database using correct API route
+      _showSnackBar('Updating database...', true);
       bool success = await _apiService.updateCancelledRides(userId);
-      
       if (!mounted || _isDisposed) return;
-      
       if (success) {
         Navigator.of(context).pop();
         _showSnackBar('Ride cancelled successfully', true);
@@ -292,17 +228,13 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         Navigator.of(context).pop();
       }
     } catch (e) {
-      print('Cancel ride error: $e');
-      if (mounted && !_isDisposed) {
-        _showSnackBar('Ride cancelled but database error occurred', false);
-        Navigator.of(context).pop();
-      }
+      _showSnackBar('Ride cancelled but database error occurred', false);
+      Navigator.of(context).pop();
     }
   }
 
   void _showTripSummary() {
     if (!mounted || _isDisposed) return;
-    
     _widgets.showTripSummary(
       context: context,
       distance: _rideController.formatDistance(),
@@ -324,93 +256,58 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     );
   }
 
-  // Replace the existing _updateDailyStats method in StartRidePage with this:
-Future<void> _updateDailyStats(double earnings) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final currentDate = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD format
-    
-    // Get user ID for user-specific storage keys
-    final userId = widget.user.id ?? 'unknown_user';
-    
-    // USER-SPECIFIC KEYS - Each user has their own stats
-    final userTripsKey = 'today_trips_$userId';
-    final userEarningsKey = 'today_earnings_$userId';
-    final userDateKey = 'daily_stats_date_$userId';
-    
-    // Get stored stats date to check if it's a new day FOR THIS USER
-    final storedDate = prefs.getString(userDateKey) ?? '';
-    
-    print('Updating daily stats for user: $userId');
-    
-    if (storedDate != currentDate) {
-      // New day detected FOR THIS USER, set stats to 1 trip and current earnings
-      await prefs.setInt(userTripsKey, 1);
-      await prefs.setDouble(userEarningsKey, earnings);
-      await prefs.setString(userDateKey, currentDate);
-      print('Daily stats reset for user $userId on new day: $currentDate');
-    } else {
-      // Same day, increment existing stats FOR THIS USER
-      final currentTrips = prefs.getInt(userTripsKey) ?? 0;
-      final currentEarnings = prefs.getDouble(userEarningsKey) ?? 0.0;
-      
-      await prefs.setInt(userTripsKey, currentTrips + 1);
-      await prefs.setDouble(userEarningsKey, currentEarnings + earnings);
-      print('Daily stats updated for user $userId: trips=${currentTrips + 1}, earnings=${currentEarnings + earnings}');
-    }
-  } catch (e) {
-    print('Error updating daily stats for user ${widget.user.id}: $e');
+  Future<void> _updateDailyStats(double earnings) async {
+    try {
+      final userId = widget.user.id;
+      if (userId == null || userId.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      final userTripsKey = 'today_trips_$userId';
+      final userEarningsKey = 'today_earnings_$userId';
+      final userLastResetKey = 'last_reset_timestamp_$userId';
+      final lastResetTimestamp = prefs.getInt(userLastResetKey) ?? 0;
+      final lastResetDate = DateTime.fromMillisecondsSinceEpoch(lastResetTimestamp);
+      bool needsReset = false;
+      if (lastResetTimestamp == 0) {
+        needsReset = true;
+      } else {
+        final todayMidnight = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        if (now.isAfter(todayMidnight) && lastResetDate.isBefore(todayMidnight)) {
+          needsReset = true;
+        } else if (now.day != lastResetDate.day || now.month != lastResetDate.month || now.year != lastResetDate.year) {
+          needsReset = true;
+        }
+      }
+      if (needsReset) {
+        await prefs.setInt(userTripsKey, 1);
+        await prefs.setDouble(userEarningsKey, earnings);
+        await prefs.setInt(userLastResetKey, now.millisecondsSinceEpoch);
+      } else {
+        final currentTrips = prefs.getInt(userTripsKey) ?? 0;
+        final currentEarnings = prefs.getDouble(userEarningsKey) ?? 0.0;
+        await prefs.setInt(userTripsKey, currentTrips + 1);
+        await prefs.setDouble(userEarningsKey, currentEarnings + earnings);
+      }
+    } catch (_) {}
   }
-}
 
-
-  // FIXED: Handle complete ride with daily stats update
   Future<void> _handleCompleteRide() async {
     if (!mounted || _isDisposed) return;
-    
-    Navigator.of(context).pop(); // Close trip summary
-    
+    Navigator.of(context).pop();
     try {
-      // Get user ID with detailed debugging
       String userId = widget.user.id ?? '';
-      
-      print('DEBUG Complete Ride:');
-      print('Raw User ID: "$userId"');
-      print('User ID Length: ${userId.length}');
-      print('User ID isEmpty: ${userId.isEmpty}');
-      print('User Name: ${widget.user.name}');
-      print('User Phone: ${widget.user.phoneNumber}');
-      
-      // Validate user ID
       if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
-        print('ERROR: Invalid user ID detected');
-        if (mounted && !_isDisposed) {
-          _showSnackBar('Error: User session invalid. Please login again.', false);
-          Navigator.of(context).pop();
-        }
+        _showSnackBar('Error: User session invalid. Please login again.', false);
+        Navigator.of(context).pop();
         return;
       }
-
-      // Additional validation for MongoDB ObjectId format
       if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
-        print('ERROR: User ID is not a valid MongoDB ObjectId format');
-        if (mounted && !_isDisposed) {
-          _showSnackBar('Error: Invalid user ID format. Please login again.', false);
-          Navigator.of(context).pop();
-        }
+        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
+        Navigator.of(context).pop();
         return;
       }
-
       double rideEarnings = _rideController.totalFare;
-      
-      print('SUCCESS: User ID validation passed, ride earnings: $rideEarnings');
-      
-      // Show loading
-      if (mounted && !_isDisposed) {
-        _showSnackBar('Updating earnings...', true);
-      }
-      
-      // Create trip data object
+      _showSnackBar('Updating earnings...', true);
       Map<String, dynamic> tripData = {
         'distance': _rideController.formatDistance(),
         'duration': _rideController.formatTime(),
@@ -421,43 +318,29 @@ Future<void> _updateDailyStats(double earnings) async {
         'endTime': _rideController.getTripEndTime(),
         'completedAt': DateTime.now().toIso8601String(),
       };
-      
-      print('Trip data: ${tripData.toString()}');
-      
-      // Update database using your existing ApiService
       bool success = await _apiService.updateCompletedRide(
         userId: userId,
         rideEarnings: rideEarnings,
         tripData: tripData,
       );
-
-      // NEW: Update daily stats locally regardless of API success
       await _updateDailyStats(rideEarnings);
-      
       if (!mounted || _isDisposed) return;
-      
       if (success) {
-        Navigator.of(context).pop(); // Go back to previous screen
+        Navigator.of(context).pop();
         _showSnackBar('Trip completed! Earnings updated: ₹${rideEarnings.toStringAsFixed(2)}', true);
       } else {
         _showSnackBar('Trip completed but database update failed', false);
         Navigator.of(context).pop();
       }
     } catch (e) {
-      print('Complete ride error: $e');
-      if (mounted && !_isDisposed) {
-        _showSnackBar('Trip completed but database error occurred', false);
-        Navigator.of(context).pop();
-      }
+      _showSnackBar('Trip completed but database error occurred', false);
+      Navigator.of(context).pop();
     }
   }
 
-  // Rest of your methods remain the same...
   void _showCustomerPhoneInput() {
     if (!mounted || _isDisposed) return;
-    
     final TextEditingController phoneController = TextEditingController();
-    
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -473,33 +356,16 @@ Future<void> _updateDailyStats(double earnings) async {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 60,
-                      height: 60,
+                      width: 60, height: 60,
                       decoration: BoxDecoration(
-                        color: Color(0xFF25D366).withOpacity(0.1),
-                        shape: BoxShape.circle,
+                        color: Color(0xFF25D366).withOpacity(0.1), shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.image, color: Color(0xFF25D366), size: 30),
                     ),
                     SizedBox(height: 16),
-                    Text(
-                      'Share Trip Bill',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
+                    Text('Share Trip Bill', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
                     SizedBox(height: 10),
-                    Text(
-                      'Generate and share bill image with customer',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                        height: 1.3,
-                      ),
-                    ),
+                    Text('Generate and share bill image with customer', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.3)),
                     SizedBox(height: 20),
                     Row(
                       children: [
@@ -511,9 +377,7 @@ Future<void> _updateDailyStats(double earnings) async {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               padding: EdgeInsets.symmetric(vertical: 12),
                             ),
-                            child: Text('Cancel', 
-                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                            ),
+                            child: Text('Cancel', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                           ),
                         ),
                         SizedBox(width: 12),
@@ -536,13 +400,7 @@ Future<void> _updateDailyStats(double earnings) async {
                               children: [
                                 Icon(Icons.image, size: 18),
                                 SizedBox(width: 6),
-                                Text(
-                                  'Generate & Share',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
+                                Text('Generate & Share', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                               ],
                             ),
                           ),
@@ -561,20 +419,12 @@ Future<void> _updateDailyStats(double earnings) async {
 
   Future<void> _generateAndShareBillImage(String phoneNumber) async {
     if (!mounted || _isDisposed) return;
-    
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
+              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white))),
               SizedBox(width: 12),
               Text('Generating bill image...'),
             ],
@@ -586,25 +436,18 @@ Future<void> _updateDailyStats(double earnings) async {
           duration: Duration(seconds: 3),
         ),
       );
-      
       final Uint8List imageBytes = await _screenshotController.captureFromWidget(
         _buildUltraCompactBillWidget(),
         delay: Duration(milliseconds: 500),
         pixelRatio: 2.0,
         targetSize: Size(350, 600),
       );
-      
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'vaagai_bill_$timestamp.png';
       final file = File('${tempDir.path}/$fileName');
-      
       await file.writeAsBytes(imageBytes);
-      
-      if (!await file.exists() || await file.length() == 0) {
-        throw Exception('Failed to generate bill image');
-      }
-      
+      if (!await file.exists() || await file.length() == 0) throw Exception('Failed to generate bill image');
       String shareMessage = '''🚗 *Vaagai Auto - Trip Receipt*
 
 📍 Distance: ${_rideController.formatDistance()} km
@@ -615,40 +458,27 @@ Future<void> _updateDailyStats(double earnings) async {
 🕐 ${_rideController.getTripStartTime()} - ${_rideController.getTripEndTime()}
 
 Thank you for choosing Vaagai Auto! 🙏''';
-
       await Share.shareXFiles(
         [XFile(file.path)],
         text: shareMessage,
         subject: 'Vaagai Auto - Trip Receipt',
       );
-      
       if (mounted && !_isDisposed) {
         _showSnackBar('Bill shared successfully!', true);
       }
-      
       Timer(Duration(minutes: 2), () async {
-        try {
-          if (await file.exists()) {
-            await file.delete();
-          }
-        } catch (e) {
-          print('Temp file cleanup error: $e');
-        }
+        try { if (await file.exists()) await file.delete(); } catch (_) {}
       });
-      
     } catch (e) {
-      print('Bill generation error: $e');
       if (mounted && !_isDisposed) {
         _showSnackBar('Failed to generate bill. Please try again.', false);
       }
     }
   }
 
-  // Keep your existing _buildUltraCompactBillWidget and _buildMicroBillRow methods as they are...
   Widget _buildUltraCompactBillWidget() {
     final DateTime now = DateTime.now();
     final String receiptId = 'VA${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
-    
     return Material(
       color: Colors.white,
       child: Container(
@@ -714,7 +544,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
                 ],
               ),
             ),
-            
             Container(
               padding: EdgeInsets.all(12),
               child: Column(
@@ -730,14 +559,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '📋 TRIP DETAILS',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
+                        Text('📋 TRIP DETAILS', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
                         SizedBox(height: 8),
                         _buildMicroBillRow('Driver', widget.user.name ?? "Driver"),
                         _buildMicroBillRow('Date', '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
@@ -747,9 +569,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
                       ],
                     ),
                   ),
-                  
                   SizedBox(height: 8),
-                  
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(12),
@@ -761,14 +581,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '💰 FARE BREAKDOWN',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
+                        Text('💰 FARE BREAKDOWN', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
                         SizedBox(height: 8),
                         _buildMicroBillRow('Base Fare', '₹59.00'),
                         if (_rideController.distance > 1.0)
@@ -778,9 +591,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
                       ],
                     ),
                   ),
-                  
                   SizedBox(height: 8),
-                  
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(12),
@@ -797,28 +608,12 @@ Thank you for choosing Vaagai Auto! 🙏''';
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'TOTAL AMOUNT',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF00B562),
-                          ),
-                        ),
-                        Text(
-                          '₹${_rideController.totalFare.toStringAsFixed(2)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF00B562),
-                          ),
-                        ),
+                        Text('TOTAL AMOUNT', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF00B562))),
+                        Text('₹${_rideController.totalFare.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF00B562))),
                       ],
                     ),
                   ),
-                  
                   SizedBox(height: 8),
-                  
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.all(10),
@@ -828,48 +623,18 @@ Thank you for choosing Vaagai Auto! 🙏''';
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          '🙏 Thank You for Choosing Vaagai Auto!',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        Text('🙏 Thank You for Choosing Vaagai Auto!', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87), textAlign: TextAlign.center),
                         SizedBox(height: 4),
-                        Text(
-                          'Have a safe journey! ✨',
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey[600],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        Text('Have a safe journey! ✨', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.grey[600]), textAlign: TextAlign.center),
                         SizedBox(height: 6),
-                        Text(
-                          '📞 Support: +91-XXXXXXXXXX',
-                          style: GoogleFonts.inter(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey[600],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        Text('📞 Support: +91-XXXXXXXXXX', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w500, color: Colors.grey[600]), textAlign: TextAlign.center),
                       ],
                     ),
                   ),
-                  
                   SizedBox(height: 6),
-                  
                   Text(
                     'Generated: ${now.day}/${now.month}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-                    style: GoogleFonts.inter(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[500],
-                    ),
+                    style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w500, color: Colors.grey[500]),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -887,22 +652,8 @@ Thank you for choosing Vaagai Auto! 🙏''';
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[700],
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
+          Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.grey[700])),
+          Text(value, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black87)),
         ],
       ),
     );
@@ -919,9 +670,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
             _widgets.buildHeader(
               title: 'Vaagai Auto',
               onBackPressed: () {
-                if (mounted && !_isDisposed) {
-                  Navigator.pop(context);
-                }
+                if (mounted && !_isDisposed) Navigator.pop(context);
               },
               showCancelRide: true,
               onCancelRide: _showCancelRideConfirmation,
@@ -946,8 +695,8 @@ Thank you for choosing Vaagai Auto! 🙏''';
                           currentPosition: _rideController.currentPosition,
                         ),
                         SizedBox(height: 20),
-                        _rideController.isMeterOn 
-                            ? _buildActiveRideUI() 
+                        _rideController.isMeterOn
+                            ? _buildActiveRideUI()
                             : _buildStartRideUI(),
                       ],
                     ),
@@ -975,9 +724,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
       onEndRide: _endRide,
       onWaitingTimeChanged: (int newValue) {
         _rideController.updateSelectedWaitingTime(newValue);
-        if (mounted && !_isDisposed) {
-          setState(() {});
-        }
+        if (mounted && !_isDisposed) setState(() {});
       },
     );
   }

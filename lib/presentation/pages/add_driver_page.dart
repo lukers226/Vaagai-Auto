@@ -4,16 +4,16 @@ import 'package:google_fonts/google_fonts.dart';
 import '../bloc/driver/driver_bloc.dart';
 import '../bloc/driver/driver_event.dart';
 import '../bloc/driver/driver_state.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/custom_button.dart';
 import '../../core/utils/validators.dart';
 
 class AddDriverPage extends StatefulWidget {
+  const AddDriverPage({super.key});
+
   @override
-  _AddDriverPageState createState() => _AddDriverPageState();
+  AddDriverPageState createState() => AddDriverPageState();
 }
 
-class _AddDriverPageState extends State<AddDriverPage> {
+class AddDriverPageState extends State<AddDriverPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -89,7 +89,7 @@ class _AddDriverPageState extends State<AddDriverPage> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         spreadRadius: 1,
                         blurRadius: 10,
                         offset: Offset(0, 2),
@@ -143,7 +143,7 @@ class _AddDriverPageState extends State<AddDriverPage> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withValues(alpha: 0.1),
                         spreadRadius: 1,
                         blurRadius: 10,
                         offset: Offset(0, 2),
