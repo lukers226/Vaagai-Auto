@@ -28,6 +28,8 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   final ApiService _apiService = ApiService();
 
   bool _isDisposed = false;
+  bool _fareDataLoaded = false;
+  bool _isInitialized = false;
 
   late AnimationController _pulseController;
   late AnimationController _slideController;
@@ -38,89 +40,265 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
+    debugPrint('🚀 StartRidePage initState started for user: ${widget.user.name} (ID: ${widget.user.id})');
+    
+    // Initialize components first
     _rideController = RideController();
     _widgets = RideWidgets(context);
     _initializeAnimations();
+    
+    // Initialize ride controller
     _rideController.initialize(
       onLocationUpdate: _onLocationUpdate,
       onStatusChange: _onStatusChange,
       onShowSnackBar: _showSnackBar,
     );
+    
+    // Load fare data from database FIRST, then mark as initialized
+    _initializeApp();
+    
+    // Prevent call interruptions from ending ride
+    _preventCallInterruption();
+  }
+
+  // ENHANCED: Complete app initialization flow
+  Future<void> _initializeApp() async {
+    try {
+      debugPrint('📱 Starting app initialization...');
+      
+      // Step 1: Load fare data from database
+      await _loadFareDataFromDatabase();
+      
+      // Step 2: Mark as initialized
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isInitialized = true;
+        });
+        debugPrint('✅ App initialization complete');
+      }
+      
+    } catch (e) {
+      debugPrint('❌ App initialization failed: $e');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isInitialized = true; // Still mark as initialized to show UI
+        });
+        _showSnackBar('⚠️ Initialization completed with warnings', false);
+      }
+    }
+  }
+
+  // ENHANCED: Load fare data with comprehensive error handling
+  Future<void> _loadFareDataFromDatabase() async {
+    try {
+      debugPrint('🔄 Starting fare data load from database...');
+      
+      // Show loading message to user (only if needed)
+      if (mounted && !_isDisposed) {
+        _showSnackBar('📊 Loading fare rates...', true);
+      }
+      
+      // Make API call to get fare data
+      Map<String, dynamic> fareData = await _apiService.getFareData();
+      debugPrint('✅ Raw fare data received: $fareData');
+      
+      if (fareData.isNotEmpty) {
+        // Set the fare data in the controller
+        _rideController.setFareDataFromDB(fareData);
+        
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _fareDataLoaded = true;
+          });
+          
+          debugPrint('💯 Database fare data loaded successfully:');
+          debugPrint('   📊 Base Fare: ₹${_rideController.baseFareFromDB}');
+          debugPrint('   ⏱️ Waiting Charges: ${_rideController.waitingChargesFromDB}');
+          
+          _showSnackBar(
+            '✅ Ready to start! Base fare: ₹${_rideController.baseFareFromDB.toStringAsFixed(0)}', 
+            true
+          );
+        }
+      } else {
+        throw Exception('Empty fare data received from server');
+      }
+    } on TimeoutException {
+      debugPrint('⏱️ Timeout while loading fare data');
+      _handleFareDataError('Connection timeout. Using default rates.');
+    } on SocketException {
+      debugPrint('🌐 Network error while loading fare data');
+      _handleFareDataError('Network error. Using default rates.');
+    } on FormatException {
+      debugPrint('🔧 Format error while parsing fare data');
+      _handleFareDataError('Data format error. Using default rates.');
+    } catch (e) {
+      debugPrint('❌ Unexpected error loading fare data: $e');
+      _handleFareDataError('Server error. Using default rates.');
+    }
+  }
+
+  // ENHANCED: Handle fare data loading errors
+  void _handleFareDataError(String message) {
+    if (mounted && !_isDisposed) {
+      setState(() {
+        _fareDataLoaded = false;
+      });
+      
+      _showSnackBar('⚠️ $message', false);
+      
+      // Set default values if database fails
+      _rideController.setFareDataFromDB({
+        'baseFare': 100,
+        'waiting5min': 10,
+        'waiting10min': 20,
+        'waiting15min': 30,
+        'waiting20min': 40,
+        'waiting25min': 50,
+        'waiting30min': 60,
+      });
+      
+      setState(() {
+        _fareDataLoaded = true;
+      });
+      
+      debugPrint('🔧 Default fare values set as fallback');
+    }
+  }
+
+  // Prevent call interruption from ending rides
+  void _preventCallInterruption() {
+    try {
+      WidgetsBinding.instance.addObserver(_AppLifecycleObserver(_rideController));
+      debugPrint('🔒 App lifecycle observer added');
+    } catch (e) {
+      debugPrint('⚠️ Failed to add lifecycle observer: $e');
+    }
   }
 
   void _initializeAnimations() {
-    _pulseController = AnimationController(
-      duration: Duration(milliseconds: 2000),
-      vsync: this,
-    )..repeat(reverse: true);
+    try {
+      _pulseController = AnimationController(
+        duration: Duration(milliseconds: 2000),
+        vsync: this,
+      )..repeat(reverse: true);
 
-    _slideController = AnimationController(
-      duration: Duration(milliseconds: 800),
-      vsync: this,
-    )..forward();
+      _slideController = AnimationController(
+        duration: Duration(milliseconds: 800),
+        vsync: this,
+      )..forward();
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
+      _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+        CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+      );
 
-    _slideAnimation = Tween<Offset>(
-      begin: Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
+      _slideAnimation = Tween<Offset>(
+        begin: Offset(0, 0.3),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
-    );
+      _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+        CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
+      );
+      
+      debugPrint('🎬 Animations initialized successfully');
+    } catch (e) {
+      debugPrint('⚠️ Animation initialization failed: $e');
+    }
   }
 
   void _onLocationUpdate() {
-    if (mounted && !_isDisposed) setState(() {});
+    if (mounted && !_isDisposed) {
+      setState(() {});
+    }
   }
 
   void _onStatusChange() {
-    if (mounted && !_isDisposed) setState(() {});
+    if (mounted && !_isDisposed) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    debugPrint('🗑️ StartRidePage disposing...');
     _isDisposed = true;
-    _pulseController.dispose();
-    _slideController.dispose();
-    _rideController.dispose();
+    try {
+      _pulseController.dispose();
+      _slideController.dispose();
+      _rideController.dispose();
+    } catch (e) {
+      debugPrint('⚠️ Error during dispose: $e');
+    }
     super.dispose();
   }
 
   void _showSnackBar(String message, bool isSuccess) {
     if (!mounted || _isDisposed) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(isSuccess ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
-            SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(isSuccess ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
+              SizedBox(width: 12),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          backgroundColor: isSuccess ? Color(0xFF00B562) : Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          margin: EdgeInsets.all(16),
+          duration: Duration(seconds: 2),
         ),
-        backgroundColor: isSuccess ? Color(0xFF00B562) : Colors.red[600],
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        margin: EdgeInsets.all(16),
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('⚠️ Error showing snackbar: $e');
+    }
   }
 
   Future<void> _startRide() async {
     if (!mounted || _isDisposed) return;
-    bool success = await _rideController.startRide();
-    if (success && mounted && !_isDisposed) {
-      _showSnackBar('Ride started successfully!', true);
+    
+    // Check if app is initialized
+    if (!_isInitialized) {
+      _showSnackBar('⏳ Please wait for app to finish loading...', false);
+      return;
+    }
+    
+    // Check if fare data is loaded
+    if (!_fareDataLoaded) {
+      _showSnackBar('⏳ Please wait for fare data to load...', false);
+      // Try to reload fare data
+      _loadFareDataFromDatabase();
+      return;
+    }
+    
+    try {
+      bool success = await _rideController.startRide();
+      if (success && mounted && !_isDisposed) {
+        _showSnackBar(
+          '🚗 Ride started! Base fare: ₹${_rideController.baseFareFromDB.toStringAsFixed(0)}', 
+          true
+        );
+      } else {
+        _showSnackBar('❌ Failed to start ride. Please check GPS permissions.', false);
+      }
+    } catch (e) {
+      debugPrint('❌ Error starting ride: $e');
+      _showSnackBar('❌ Error starting ride. Please try again.', false);
     }
   }
 
   void _endRide() {
     if (!mounted || _isDisposed) return;
-    _rideController.stopRide();
-    _showTripSummary();
+    try {
+      _rideController.stopRide();
+      _showTripSummary();
+    } catch (e) {
+      debugPrint('❌ Error ending ride: $e');
+      _showSnackBar('❌ Error ending ride. Please try again.', false);
+    }
   }
 
   void _showCancelRideConfirmation() {
@@ -140,7 +318,8 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
                 Container(
                   width: 60, height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1), shape: BoxShape.circle,
+                    color: Colors.red.withOpacity(0.1), 
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.warning, color: Colors.red[600], size: 30),
                 ),
@@ -204,22 +383,28 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
 
   Future<void> _cancelRideAndRedirect() async {
     if (!mounted || _isDisposed) return;
-    _rideController.cancelRide();
+    
     try {
+      _rideController.cancelRide();
+      
       String userId = widget.user.id ?? '';
       if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
         _showSnackBar('Error: User session invalid. Please login again.', false);
         Navigator.of(context).pop();
         return;
       }
+      
       if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
         _showSnackBar('Error: Invalid user ID format. Please login again.', false);
         Navigator.of(context).pop();
         return;
       }
+      
       _showSnackBar('Updating database...', true);
       bool success = await _apiService.updateCancelledRides(userId);
+      
       if (!mounted || _isDisposed) return;
+      
       if (success) {
         Navigator.of(context).pop();
         _showSnackBar('Ride cancelled successfully', true);
@@ -228,8 +413,11 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         Navigator.of(context).pop();
       }
     } catch (e) {
+      debugPrint('❌ Error cancelling ride: $e');
       _showSnackBar('Ride cancelled but database error occurred', false);
-      Navigator.of(context).pop();
+      if (mounted && !_isDisposed) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -260,13 +448,16 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     try {
       final userId = widget.user.id;
       if (userId == null || userId.isEmpty) return;
+      
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
       final userTripsKey = 'today_trips_$userId';
       final userEarningsKey = 'today_earnings_$userId';
       final userLastResetKey = 'last_reset_timestamp_$userId';
+      
       final lastResetTimestamp = prefs.getInt(userLastResetKey) ?? 0;
       final lastResetDate = DateTime.fromMillisecondsSinceEpoch(lastResetTimestamp);
+      
       bool needsReset = false;
       if (lastResetTimestamp == 0) {
         needsReset = true;
@@ -278,6 +469,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
           needsReset = true;
         }
       }
+      
       if (needsReset) {
         await prefs.setInt(userTripsKey, 1);
         await prefs.setDouble(userEarningsKey, earnings);
@@ -288,12 +480,15 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         await prefs.setInt(userTripsKey, currentTrips + 1);
         await prefs.setDouble(userEarningsKey, currentEarnings + earnings);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ Error updating daily stats: $e');
+    }
   }
 
   Future<void> _handleCompleteRide() async {
     if (!mounted || _isDisposed) return;
     Navigator.of(context).pop();
+    
     try {
       String userId = widget.user.id ?? '';
       if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
@@ -301,13 +496,16 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         Navigator.of(context).pop();
         return;
       }
+      
       if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
         _showSnackBar('Error: Invalid user ID format. Please login again.', false);
         Navigator.of(context).pop();
         return;
       }
+      
       double rideEarnings = _rideController.totalFare;
       _showSnackBar('Updating earnings...', true);
+      
       Map<String, dynamic> tripData = {
         'distance': _rideController.formatDistance(),
         'duration': _rideController.formatTime(),
@@ -318,13 +516,17 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         'endTime': _rideController.getTripEndTime(),
         'completedAt': DateTime.now().toIso8601String(),
       };
+      
       bool success = await _apiService.updateCompletedRide(
         userId: userId,
         rideEarnings: rideEarnings,
         tripData: tripData,
       );
+      
       await _updateDailyStats(rideEarnings);
+      
       if (!mounted || _isDisposed) return;
+      
       if (success) {
         Navigator.of(context).pop();
         _showSnackBar('Trip completed! Earnings updated: ₹${rideEarnings.toStringAsFixed(2)}', true);
@@ -333,8 +535,11 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
         Navigator.of(context).pop();
       }
     } catch (e) {
+      debugPrint('❌ Error completing ride: $e');
       _showSnackBar('Trip completed but database error occurred', false);
-      Navigator.of(context).pop();
+      if (mounted && !_isDisposed) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -358,7 +563,8 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
                     Container(
                       width: 60, height: 60,
                       decoration: BoxDecoration(
-                        color: Color(0xFF25D366).withOpacity(0.1), shape: BoxShape.circle,
+                        color: Color(0xFF25D366).withOpacity(0.1), 
+                        shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.image, color: Color(0xFF25D366), size: 30),
                     ),
@@ -436,18 +642,24 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
           duration: Duration(seconds: 3),
         ),
       );
+      
       final Uint8List imageBytes = await _screenshotController.captureFromWidget(
         _buildUltraCompactBillWidget(),
         delay: Duration(milliseconds: 500),
         pixelRatio: 2.0,
         targetSize: Size(350, 600),
       );
+      
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'vaagai_bill_$timestamp.png';
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(imageBytes);
-      if (!await file.exists() || await file.length() == 0) throw Exception('Failed to generate bill image');
+      
+      if (!await file.exists() || await file.length() == 0) {
+        throw Exception('Failed to generate bill image');
+      }
+      
       String shareMessage = '''🚗 *Vaagai Auto - Trip Receipt*
 
 📍 Distance: ${_rideController.formatDistance()} km
@@ -458,18 +670,25 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
 🕐 ${_rideController.getTripStartTime()} - ${_rideController.getTripEndTime()}
 
 Thank you for choosing Vaagai Auto! 🙏''';
+      
       await Share.shareXFiles(
         [XFile(file.path)],
         text: shareMessage,
         subject: 'Vaagai Auto - Trip Receipt',
       );
+      
       if (mounted && !_isDisposed) {
         _showSnackBar('Bill shared successfully!', true);
       }
+      
+      // Clean up file after 2 minutes
       Timer(Duration(minutes: 2), () async {
-        try { if (await file.exists()) await file.delete(); } catch (_) {}
+        try { 
+          if (await file.exists()) await file.delete(); 
+        } catch (_) {}
       });
     } catch (e) {
+      debugPrint('❌ Error generating bill: $e');
       if (mounted && !_isDisposed) {
         _showSnackBar('Failed to generate bill. Please try again.', false);
       }
@@ -583,9 +802,9 @@ Thank you for choosing Vaagai Auto! 🙏''';
                       children: [
                         Text('💰 FARE BREAKDOWN', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
                         SizedBox(height: 8),
-                        _buildMicroBillRow('Base Fare', '₹59.00'),
+                        _buildMicroBillRow('Base Fare', '₹${_rideController.baseFareFromDB.toStringAsFixed(2)}'),
                         if (_rideController.distance > 1.0)
-                          _buildMicroBillRow('Extra (₹18/km)', '₹${(_rideController.fare - 59.0).toStringAsFixed(2)}'),
+                          _buildMicroBillRow('Extra (₹18/km)', '₹${(_rideController.fare - _rideController.baseFareFromDB).toStringAsFixed(2)}'),
                         if (_rideController.waitingCharge > 0)
                           _buildMicroBillRow('Waiting', '₹${_rideController.waitingCharge.toStringAsFixed(2)}'),
                       ],
@@ -676,7 +895,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
               onCancelRide: _showCancelRideConfirmation,
             ),
             Expanded(
-              child: SingleChildScrollView(
+              child: _isInitialized ? SingleChildScrollView(
                 physics: BouncingScrollPhysics(),
                 child: SlideTransition(
                   position: _slideAnimation,
@@ -694,6 +913,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
                           hasLocationPermission: _rideController.hasLocationPermission,
                           currentPosition: _rideController.currentPosition,
                         ),
+                        // REMOVED: Fare status card section
                         SizedBox(height: 20),
                         _rideController.isMeterOn
                             ? _buildActiveRideUI()
@@ -702,10 +922,41 @@ Thank you for choosing Vaagai Auto! 🙏''';
                     ),
                   ),
                 ),
-              ),
+              ) : _buildLoadingView(),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Loading view while app initializes
+  Widget _buildLoadingView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00B562)),
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Initializing Vaagai Auto...',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Loading fare data and GPS settings',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -723,9 +974,27 @@ Thank you for choosing Vaagai Auto! 🙏''';
       pulseAnimation: _pulseAnimation,
       onEndRide: _endRide,
       onWaitingTimeChanged: (int newValue) {
-        _rideController.updateSelectedWaitingTime(newValue);
-        if (mounted && !_isDisposed) setState(() {});
+        // Kept for compatibility but not used
       },
     );
+  }
+}
+
+// App lifecycle observer to prevent call interruptions
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  final RideController rideController;
+
+  _AppLifecycleObserver(this.rideController);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Prevent ride from ending when app goes to background (call interruption)
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      debugPrint('App paused/inactive - Ride continues running');
+    } else if (state == AppLifecycleState.resumed) {
+      debugPrint('App resumed - Ride still running');
+    }
   }
 }

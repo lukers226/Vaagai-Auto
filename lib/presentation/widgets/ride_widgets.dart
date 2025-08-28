@@ -302,7 +302,7 @@ class RideWidgets {
     required RideController rideController,
     required Animation<double> pulseAnimation,
     required VoidCallback onEndRide,
-    required Function(int) onWaitingTimeChanged,
+    required Function(int) onWaitingTimeChanged, // KEPT for compatibility but not used
   }) {
     return Column(
       children: [
@@ -312,7 +312,8 @@ class RideWidgets {
         SizedBox(height: 16),
         _buildMetricsGrid(rideController),
         SizedBox(height: 16),
-        _buildWaitingTimeSelector(rideController, onWaitingTimeChanged),
+        // Waiting time toggle card (replacing dropdown)
+        _buildWaitingTimeToggleCard(rideController),
         SizedBox(height: 24),
         _buildEndRideButton(onEndRide),
       ],
@@ -490,12 +491,17 @@ class RideWidgets {
     );
   }
 
-  Widget _buildWaitingTimeSelector(RideController controller, Function(int) onChanged) {
+  // UPDATED: Waiting time toggle card without database rates text
+  Widget _buildWaitingTimeToggleCard(RideController controller) {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: controller.isWaitingTimerActive ? Color(0xFF00B562) : Colors.grey[200]!,
+          width: controller.isWaitingTimerActive ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -507,38 +513,76 @@ class RideWidgets {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Waiting Time',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(height: 8),
-          DropdownButton<int>(
-            isExpanded: true,
-            value: controller.selectedWaitingTime,
-            underline: SizedBox(),
-            icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
-            items: controller.waitingTimes.map((int time) {
-              return DropdownMenuItem<int>(
-                value: time,
-                child: Text(
-                  time == 0 ? '🚗 Auto GPS Tracking' : '⏰ $time minutes',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Waiting Time',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-              );
-            }).toList(),
-            onChanged: (newValue) {
-              if (newValue != null) {
-                onChanged(newValue);
-              }
-            },
+              ),
+              Switch(
+                value: controller.isWaitingTimerActive,
+                onChanged: (value) => controller.toggleWaitingTimer(),
+                activeColor: Color(0xFF00B562),
+                activeTrackColor: Color(0xFF00B562).withValues(alpha: 0.3),
+              ),
+            ],
           ),
+          if (controller.isWaitingTimerActive) ...[
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Color(0xFF00B562).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Color(0xFF00B562).withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.timer, color: Color(0xFF00B562), size: 24),
+                      SizedBox(width: 8),
+                      Text(
+                        controller.getWaitingTimerDisplay(),
+                        style: GoogleFonts.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF00B562),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (controller.waitingCharge > 0) ...[
+                    SizedBox(height: 8),
+                    Text(
+                      'Charge: ₹${controller.waitingCharge.toStringAsFixed(0)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF00B562),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // REMOVED: Database rates text section
+          ] else ...[
+            SizedBox(height: 8),
+            Text(
+              'Toggle on to start waiting timer',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -575,7 +619,7 @@ class RideWidgets {
     );
   }
 
-  // FIXED: Scrollable trip summary dialog
+  // Trip summary dialog - UNCHANGED
   void showTripSummary({
     required BuildContext context,
     required String distance,
@@ -601,9 +645,9 @@ class RideWidgets {
               maxHeight: MediaQuery.of(context).size.height * 0.8,
               maxWidth: 400,
             ),
-            child: SingleChildScrollView( // FIXED: Added scroll view
+            child: SingleChildScrollView(
               child: Container(
-                padding: EdgeInsets.all(20), // FIXED: Reduced padding
+                padding: EdgeInsets.all(20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -679,7 +723,6 @@ class RideWidgets {
                       ),
                     ),
                     SizedBox(height: 20),
-                    // Share Customer Button
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -716,7 +759,7 @@ class RideWidgets {
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: Colors.grey[300]!),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: EdgeInsets.symmetric(vertical: 10), // FIXED: Reduced padding
+                              padding: EdgeInsets.symmetric(vertical: 10),
                             ),
                             child: Text('Continue', style: TextStyle(color: Colors.grey[600])),
                           ),
@@ -729,7 +772,7 @@ class RideWidgets {
                               backgroundColor: Color(0xFF00B562),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: EdgeInsets.symmetric(vertical: 10), // FIXED: Reduced padding
+                              padding: EdgeInsets.symmetric(vertical: 10),
                               elevation: 0,
                             ),
                             child: Text('Complete', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -749,18 +792,18 @@ class RideWidgets {
 
   Widget _buildSummaryRow(String label, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 3), // FIXED: Reduced spacing
+      padding: EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 13, color: Colors.grey[600]), // FIXED: Smaller font
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
           Text(
             value,
             style: GoogleFonts.inter(
-              fontSize: 13, // FIXED: Smaller font
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),

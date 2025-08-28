@@ -8,7 +8,7 @@ import '../models/driver_model.dart';
 import '../../core/constants/api_constants.dart';
 
 class ApiService {
-  static const Duration _timeout = Duration(seconds: 90); // Increased for Render cold starts
+  static const Duration _timeout = Duration(seconds: 90);
   static const int _maxRetries = 3;
 
   Future<UserModel?> login(String phoneNumber) async {
@@ -153,7 +153,157 @@ class ApiService {
     return [];
   }
 
-  // FIXED: Update cancelled rides count with correct route
+  // FIXED: Get fare data with proper MongoDB Extended JSON parsing
+  Future<Map<String, dynamic>> getFareData() async {
+    debugPrint('Getting fare data from database...');
+    
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          debugPrint('Retrying get fare data... attempt $attempt');
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+        
+        // FIXED: Use the correct endpoint from your backend
+        final response = await http.get(
+          Uri.parse('${ApiConstants.baseUrl}/fares'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        ).timeout(_timeout);
+
+        debugPrint('Fare data response status: ${response.statusCode}');
+        debugPrint('Fare data response body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          final rawData = jsonDecode(response.body);
+          debugPrint('Raw fare data received: $rawData');
+          
+          // Extract the actual fare data from response
+          Map<String, dynamic> fareDataFromDB;
+          
+          if (rawData is Map<String, dynamic>) {
+            // Handle your backend response format {"success": true, "data": {...}}
+            if (rawData.containsKey('data') && rawData['data'] is Map<String, dynamic>) {
+              fareDataFromDB = rawData['data'];
+            } else if (rawData.containsKey('success')) {
+              // Remove success field and use the rest
+              fareDataFromDB = Map.from(rawData);
+              fareDataFromDB.remove('success');
+              fareDataFromDB.remove('message');
+            } else {
+              // Use the data as-is
+              fareDataFromDB = rawData;
+            }
+          } else {
+            throw Exception('Invalid fare data structure received');
+          }
+          
+          // FIXED: Parse MongoDB Extended JSON format correctly
+          Map<String, dynamic> parsedFareData = _parseMongoExtendedJson(fareDataFromDB);
+          
+          debugPrint('Parsed fare data: $parsedFareData');
+          return parsedFareData;
+          
+        } else if (response.statusCode == 404) {
+          debugPrint('Fare settings not found in database');
+          throw Exception('Fare settings not configured in database');
+        } else {
+          throw Exception('Server returned ${response.statusCode}');
+        }
+        
+      } on TimeoutException {
+        debugPrint('TimeoutException on get fare data attempt $attempt');
+        if (attempt == _maxRetries) {
+          throw Exception('Connection timeout while loading fare data');
+        }
+        continue;
+        
+      } on SocketException {
+        debugPrint('SocketException on get fare data attempt $attempt');
+        if (attempt == _maxRetries) {
+          throw Exception('Network error while loading fare data');
+        }
+        continue;
+        
+      } on FormatException {
+        debugPrint('FormatException on get fare data attempt $attempt');
+        if (attempt == _maxRetries) {
+          throw Exception('Invalid fare data format received from server');
+        }
+        continue;
+        
+      } catch (e) {
+        debugPrint('Error getting fare data on attempt $attempt: $e');
+        if (attempt == _maxRetries) {
+          throw Exception('Failed to load fare data: $e');
+        }
+        continue;
+      }
+    }
+    
+    throw Exception('Failed to load fare data after $_maxRetries attempts');
+  }
+
+  // ENHANCED: Parse MongoDB Extended JSON format with better error handling
+  Map<String, dynamic> _parseMongoExtendedJson(Map<String, dynamic> rawData) {
+    Map<String, dynamic> parsedData = {};
+    
+    rawData.forEach((key, value) {
+      try {
+        parsedData[key] = _extractValue(value);
+      } catch (e) {
+        debugPrint('Error parsing field $key: $e');
+        // Keep original value if parsing fails
+        parsedData[key] = value;
+      }
+    });
+    
+    return parsedData;
+  }
+
+  // ENHANCED: Helper method to extract values from MongoDB Extended JSON
+  dynamic _extractValue(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      // Handle MongoDB Extended JSON types
+      if (value.containsKey('\$numberInt')) {
+        final stringValue = value['\$numberInt'].toString();
+        return int.tryParse(stringValue) ?? 0;
+      }
+      if (value.containsKey('\$numberLong')) {
+        final stringValue = value['\$numberLong'].toString();
+        return int.tryParse(stringValue) ?? 0;
+      }
+      if (value.containsKey('\$numberDouble')) {
+        final stringValue = value['\$numberDouble'].toString();
+        return double.tryParse(stringValue) ?? 0.0;
+      }
+      if (value.containsKey('\$oid')) {
+        return value['\$oid'].toString();
+      }
+      if (value.containsKey('\$date')) {
+        if (value['\$date'] is Map && value['\$date'].containsKey('\$numberLong')) {
+          final timestamp = int.tryParse(value['\$date']['\$numberLong'].toString()) ?? 0;
+          return DateTime.fromMillisecondsSinceEpoch(timestamp);
+        }
+        return value['\$date'];
+      }
+      
+      // If it's a nested object, parse recursively
+      Map<String, dynamic> nestedParsed = {};
+      value.forEach((nestedKey, nestedValue) {
+        nestedParsed[nestedKey] = _extractValue(nestedValue);
+      });
+      return nestedParsed;
+    }
+    
+    // Return as-is for other types
+    return value;
+  }
+
+  // Rest of your methods remain the same...
+  
   Future<bool> updateCancelledRides(String userId) async {
     debugPrint('Updating cancelled rides for user: $userId');
     
@@ -161,10 +311,9 @@ class ApiService {
       try {
         if (attempt > 1) {
           debugPrint('Retrying cancelled rides update... attempt $attempt');
-          await Future.delayed(Duration(seconds: attempt * 2)); // Progressive delay
+          await Future.delayed(Duration(seconds: attempt * 2));
         }
         
-        // FIXED: Use the correct API route that matches your backend
         final response = await http.patch(
           Uri.parse('${ApiConstants.baseUrl}/rides/$userId/cancel-ride'),
           headers: {
@@ -189,10 +338,9 @@ class ApiService {
             throw Exception('API returned success: false - ${responseData['error'] ?? 'Unknown error'}');
           }
         } else if (response.statusCode == 404) {
-          // Handle 404 specifically - driver not found
           final errorData = jsonDecode(response.body);
           debugPrint('Driver not found: ${errorData['error']}');
-          return false; // Return false instead of throwing exception
+          return false;
         } else {
           throw Exception('Server returned ${response.statusCode}');
         }
@@ -230,7 +378,6 @@ class ApiService {
     return false;
   }
 
-  // FIXED: Update completed rides and total earnings with correct route
   Future<bool> updateCompletedRide({
     required String userId,
     required double rideEarnings,
@@ -242,10 +389,9 @@ class ApiService {
       try {
         if (attempt > 1) {
           debugPrint('Retrying completed ride update... attempt $attempt');
-          await Future.delayed(Duration(seconds: attempt * 2)); // Progressive delay
+          await Future.delayed(Duration(seconds: attempt * 2));
         }
         
-        // FIXED: Use the correct API route that matches your backend
         final response = await http.patch(
           Uri.parse('${ApiConstants.baseUrl}/rides/$userId/complete-ride'),
           headers: {
@@ -270,7 +416,6 @@ class ApiService {
             throw Exception('API returned success: false - ${responseData['error'] ?? 'Unknown error'}');
           }
         } else if (response.statusCode == 404) {
-          // Handle 404 specifically - driver not found
           final errorData = jsonDecode(response.body);
           debugPrint('Driver not found: ${errorData['error']}');
           return false;
@@ -311,7 +456,6 @@ class ApiService {
     return false;
   }
 
-  // NEW: Get user statistics for profile page
   Future<Map<String, dynamic>?> getUserStats(String userId) async {
     debugPrint('Getting user stats for user: $userId');
     
@@ -322,7 +466,6 @@ class ApiService {
           await Future.delayed(Duration(seconds: attempt * 2));
         }
         
-        // Use the same endpoint as getDriverStats but with a different method name for clarity
         final response = await http.get(
           Uri.parse('${ApiConstants.baseUrl}/rides/$userId/stats'),
           headers: {
@@ -382,7 +525,6 @@ class ApiService {
     return null;
   }
 
-  // FIXED: Get updated driver stats with correct route
   Future<Map<String, dynamic>?> getDriverStats(String userId) async {
     debugPrint('Getting driver stats for user: $userId');
     
@@ -393,7 +535,6 @@ class ApiService {
           await Future.delayed(Duration(seconds: attempt * 2));
         }
         
-        // FIXED: Use the correct API route that matches your backend
         final response = await http.get(
           Uri.parse('${ApiConstants.baseUrl}/rides/$userId/stats'),
           headers: {
@@ -452,7 +593,6 @@ class ApiService {
     return null;
   }
 
-  // Health check to wake up server
   Future<bool> healthCheck() async {
     try {
       final response = await http.get(

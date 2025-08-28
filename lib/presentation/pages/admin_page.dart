@@ -27,48 +27,73 @@ class AdminPageState extends State<AdminPage> {
   }
 
   void _logout() {
+    if (!mounted) return;
+    
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: Row(
+          title: const Row(
             children: [
               Icon(Icons.logout, color: Colors.red),
               SizedBox(width: 10),
               Text('Logout'),
             ],
           ),
-          content: Text('Are you sure you want to logout?'),
+          content: const Text('Are you sure you want to logout?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () async {
-                Navigator.of(context).pop();
-                context.read<AuthBloc>().add(LogoutRequested());
+                // Close dialog first
+                Navigator.of(dialogContext).pop();
                 
-                // Clear local storage
-                await _clearLoginStatus();
-                
-                if (mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => LoginPage()),
-                  );
-                }
+                // Perform logout operations
+                await _performLogout();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: Text('Logout', style: TextStyle(color: Colors.white)),
+              child: const Text('Logout', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _performLogout() async {
+    if (!mounted) return;
+    
+    try {
+      // Trigger logout event
+      context.read<AuthBloc>().add(LogoutRequested());
+      
+      // Clear local storage
+      await _clearLoginStatus();
+      
+      // Navigate to login page only if widget is still mounted
+      if (mounted) {
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+      }
+    } catch (e) {
+      // Handle any errors during logout
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // Clear login status from local storage
@@ -85,23 +110,85 @@ class AdminPageState extends State<AdminPage> {
     }
   }
 
+  Future<void> _navigateToAddDriver() async {
+    if (!mounted) return;
+    
+    try {
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const AddDriverPage()),
+      );
+      
+      // Check mounted before using context
+      if (mounted && result == true) {
+        context.read<DriverBloc>().add(LoadDriversRequested());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Navigation error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _navigateToAddDriverFromFab() async {
+    if (!mounted) return;
+    
+    try {
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const AddDriverPage()),
+      );
+      
+      // Check mounted before using context
+      if (mounted && result == true) {
+        context.read<DriverBloc>().add(LoadDriversRequested());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Navigation error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleDrawerNavigation(Widget page) {
+    if (!mounted) return;
+    
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => page),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Vaagai Auto',style: GoogleFonts.poppins(fontWeight: FontWeight.bold,color: Colors.black),),
+        title: Text(
+          'Vaagai Auto',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
         centerTitle: false,
         backgroundColor: Colors.yellow,
         foregroundColor: Colors.white,
         elevation: 0,
-        iconTheme: IconThemeData(
-          color: Colors.black
-        ),
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       drawer: Drawer(
         elevation: 16,
         child: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -114,17 +201,17 @@ class AdminPageState extends State<AdminPage> {
               // Enhanced Header Section
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.fromLTRB(24, 60, 24, 24),
+                padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.yellow[800]!.withValues(alpha: 0.9), 
+                      Colors.yellow[800]!.withValues(alpha: 0.9),
                       Colors.yellow[800]!.withValues(alpha: 0.7)
                     ],
                   ),
-                  borderRadius: BorderRadius.only(
+                  borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(30),
                     bottomRight: Radius.circular(30),
                   ),
@@ -133,16 +220,19 @@ class AdminPageState extends State<AdminPage> {
                   children: [
                     // Profile Avatar with enhanced styling
                     Container(
-                      padding: EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          width: 2,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.2),
                             spreadRadius: 2,
                             blurRadius: 10,
-                            offset: Offset(0, 4),
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -158,7 +248,7 @@ class AdminPageState extends State<AdminPage> {
                               colors: [Colors.yellow[600]!, Colors.yellow[400]!],
                             ),
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.admin_panel_settings,
                             size: 45,
                             color: Colors.white,
@@ -166,7 +256,7 @@ class AdminPageState extends State<AdminPage> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     // Title with enhanced typography
                     Text(
                       'Admin Panel',
@@ -177,20 +267,22 @@ class AdminPageState extends State<AdminPage> {
                         letterSpacing: 1.2,
                         shadows: [
                           Shadow(
-                            offset: Offset(0, 2),
+                            offset: const Offset(0, 2),
                             blurRadius: 4,
                             color: Colors.black.withValues(alpha: 0.3),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Text(
                         'Auto Meter System',
@@ -205,11 +297,11 @@ class AdminPageState extends State<AdminPage> {
                   ],
                 ),
               ),
-              
+
               // Menu Items Section
               Expanded(
                 child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Column(
                     children: [
                       // Main Menu Items
@@ -223,57 +315,44 @@ class AdminPageState extends State<AdminPage> {
                         },
                         isSelected: true, // Mark dashboard as selected
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       _buildDrawerItem(
                         icon: Icons.people_rounded,
                         iconColor: Colors.black,
                         textColor: Colors.black,
                         title: 'All Users',
                         onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => AllUsersPage()),
-                          );
+                          _handleDrawerNavigation(const AllUsersPage());
                         },
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       _buildDrawerItem(
                         icon: Icons.people_rounded,
                         iconColor: Colors.black,
                         textColor: Colors.black,
                         title: 'Add Fare',
                         onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => AddFarePage()),
-                          );
+                          _handleDrawerNavigation(const AddFarePage());
                         },
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       _buildDrawerItem(
                         icon: Icons.person_add_rounded,
                         iconColor: Colors.black,
                         textColor: Colors.black,
                         title: 'Add Driver',
-                        onTap: () async {
+                        onTap: () {
                           Navigator.pop(context);
-                          final result = await Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => AddDriverPage()),
-                          );
-                          if (mounted && result == true) {
-                            context.read<DriverBloc>().add(LoadDriversRequested());
-                          }
+                          _navigateToAddDriver();
                         },
                       ),
-                      
+
                       // Spacer to push logout to bottom
-                      Spacer(),
-                      
+                      const Spacer(),
+
                       // Divider with enhanced styling
                       Container(
-                        margin: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         height: 1,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -285,7 +364,7 @@ class AdminPageState extends State<AdminPage> {
                           ),
                         ),
                       ),
-                      
+
                       // Logout Item
                       _buildDrawerItem(
                         icon: Icons.logout_rounded,
@@ -297,7 +376,7 @@ class AdminPageState extends State<AdminPage> {
                           _logout();
                         },
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -322,12 +401,14 @@ class AdminPageState extends State<AdminPage> {
                   content: Text(state.message),
                   backgroundColor: Colors.red,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               );
             } else if (state is DriverAddSuccess) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+                const SnackBar(
                   content: Row(
                     children: [
                       Icon(Icons.check_circle, color: Colors.white),
@@ -337,7 +418,6 @@ class AdminPageState extends State<AdminPage> {
                   ),
                   backgroundColor: Colors.green,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               );
             }
@@ -352,7 +432,7 @@ class AdminPageState extends State<AdminPage> {
                       strokeWidth: 3,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.yellow[700]!),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     Text(
                       'Loading drivers...',
                       style: TextStyle(
@@ -369,10 +449,10 @@ class AdminPageState extends State<AdminPage> {
                 children: [
                   // Header Section
                   Container(
-                    margin: EdgeInsets.all(16),
-                    padding: EdgeInsets.all(20),
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
+                      gradient: const LinearGradient(
                         colors: [Colors.black, Colors.black],
                       ),
                       borderRadius: BorderRadius.circular(15),
@@ -381,7 +461,7 @@ class AdminPageState extends State<AdminPage> {
                           color: Colors.yellow.withValues(alpha: 0.3),
                           spreadRadius: 2,
                           blurRadius: 10,
-                          offset: Offset(0, 3),
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
@@ -414,21 +494,14 @@ class AdminPageState extends State<AdminPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: IconButton(
-                            onPressed: () async {
-                              final result = await Navigator.of(context).push(
-                                MaterialPageRoute(builder: (context) => AddDriverPage()),
-                              );
-                              if (mounted && result == true) {
-                                context.read<DriverBloc>().add(LoadDriversRequested());
-                              }
-                            },
+                            onPressed: _navigateToAddDriverFromFab,
                             icon: Icon(Icons.add, color: Colors.yellow[700], size: 28),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  
+
                   // Drivers List
                   Expanded(
                     child: state.drivers.isEmpty
@@ -437,7 +510,7 @@ class AdminPageState extends State<AdminPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Container(
-                                  padding: EdgeInsets.all(30),
+                                  padding: const EdgeInsets.all(30),
                                   decoration: BoxDecoration(
                                     color: Colors.grey[100],
                                     shape: BoxShape.circle,
@@ -448,7 +521,7 @@ class AdminPageState extends State<AdminPage> {
                                     color: Colors.grey[400],
                                   ),
                                 ),
-                                SizedBox(height: 20),
+                                const SizedBox(height: 20),
                                 Text(
                                   'No drivers added yet',
                                   style: TextStyle(
@@ -457,7 +530,7 @@ class AdminPageState extends State<AdminPage> {
                                     color: Colors.grey[700],
                                   ),
                                 ),
-                                SizedBox(height: 8),
+                                const SizedBox(height: 8),
                                 Text(
                                   'Tap the + button to add your first driver',
                                   style: TextStyle(
@@ -471,15 +544,17 @@ class AdminPageState extends State<AdminPage> {
                         : RefreshIndicator(
                             color: Colors.blue[700],
                             onRefresh: () async {
-                              context.read<DriverBloc>().add(LoadDriversRequested());
+                              if (mounted) {
+                                context.read<DriverBloc>().add(LoadDriversRequested());
+                              }
                             },
                             child: ListView.builder(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
                               itemCount: state.drivers.length,
                               itemBuilder: (context, index) {
                                 final driver = state.drivers[index];
                                 return Container(
-                                  margin: EdgeInsets.only(bottom: 12),
+                                  margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
                                     color: Colors.yellow,
                                     borderRadius: BorderRadius.circular(15),
@@ -488,18 +563,21 @@ class AdminPageState extends State<AdminPage> {
                                         color: Colors.grey.withValues(alpha: 0.1),
                                         spreadRadius: 1,
                                         blurRadius: 6,
-                                        offset: Offset(0, 2),
+                                        offset: const Offset(0, 2),
                                       ),
                                     ],
                                   ),
                                   child: ListTile(
-                                    contentPadding: EdgeInsets.all(16),
+                                    contentPadding: const EdgeInsets.all(16),
                                     leading: Container(
                                       width: 50,
                                       height: 50,
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [Colors.yellow[600]!, Colors.yellow[400]!],
+                                          colors: [
+                                            Colors.yellow[600]!,
+                                            Colors.yellow[400]!
+                                          ],
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -509,7 +587,7 @@ class AdminPageState extends State<AdminPage> {
                                           'assets/images/logo.png', // Your custom image
                                           fit: BoxFit.cover,
                                           errorBuilder: (context, error, stackTrace) {
-                                            return Icon(
+                                            return const Icon(
                                               Icons.person,
                                               color: Colors.white,
                                               size: 24,
@@ -520,7 +598,7 @@ class AdminPageState extends State<AdminPage> {
                                     ),
                                     title: Text(
                                       driver.name,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16,
                                       ),
@@ -528,19 +606,21 @@ class AdminPageState extends State<AdminPage> {
                                     subtitle: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        SizedBox(height: 4),
+                                        const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.phone, size: 14, color: Colors.grey[600]),
-                                            SizedBox(width: 4),
+                                            Icon(Icons.phone,
+                                                size: 14, color: Colors.grey[600]),
+                                            const SizedBox(width: 4),
                                             Text(driver.phoneNumber),
                                           ],
                                         ),
-                                        SizedBox(height: 4),
+                                        const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.calendar_month_sharp, size: 14, color: Colors.grey[600]),
-                                            SizedBox(width: 4),
+                                            Icon(Icons.calendar_month_sharp,
+                                                size: 14, color: Colors.grey[600]),
+                                            const SizedBox(width: 4),
                                             Text(
                                               'Added: ${driver.createdAt.day}/${driver.createdAt.month}/${driver.createdAt.year}',
                                               style: TextStyle(
@@ -553,7 +633,8 @@ class AdminPageState extends State<AdminPage> {
                                       ],
                                     ),
                                     trailing: Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: Colors.green[50],
                                         borderRadius: BorderRadius.circular(20),
@@ -561,8 +642,9 @@ class AdminPageState extends State<AdminPage> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.verified, color: Colors.green, size: 16),
-                                          SizedBox(width: 4),
+                                          const Icon(Icons.verified,
+                                              color: Colors.green, size: 16),
+                                          const SizedBox(width: 4),
                                           Text(
                                             'Active',
                                             style: TextStyle(
@@ -588,7 +670,7 @@ class AdminPageState extends State<AdminPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: EdgeInsets.all(30),
+                    padding: const EdgeInsets.all(30),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Colors.yellow[100]!, Colors.yellow[50]!],
@@ -601,7 +683,7 @@ class AdminPageState extends State<AdminPage> {
                       color: Colors.yellow[700],
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Text(
                     'Welcome Admin!',
                     style: TextStyle(
@@ -610,7 +692,7 @@ class AdminPageState extends State<AdminPage> {
                       color: Colors.grey[800],
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     'Loading dashboard...',
                     style: TextStyle(
@@ -636,7 +718,7 @@ class AdminPageState extends State<AdminPage> {
     bool isSelected = false,
   }) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -645,40 +727,44 @@ class AdminPageState extends State<AdminPage> {
           splashColor: Colors.white.withValues(alpha: 0.1),
           highlightColor: Colors.white.withValues(alpha: 0.05),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              color: isSelected 
+              color: isSelected
                   ? Colors.white.withValues(alpha: 0.15)
                   : Colors.transparent,
-              border: isSelected 
+              border: isSelected
                   ? Border.all(color: Colors.white.withValues(alpha: 0.3))
                   : null,
             ),
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isSelected 
+                    color: isSelected
                         ? Colors.white.withValues(alpha: 0.2)
                         : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    color: iconColor ?? 
-                           (isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9)),
+                    color: iconColor ??
+                        (isSelected
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.9)),
                     size: 22,
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: textColor ?? 
-                             (isSelected ? Colors.white : Colors.white.withValues(alpha: 0.9)),
+                      color: textColor ??
+                          (isSelected
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.9)),
                       fontSize: 16,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       letterSpacing: 0.5,
@@ -689,7 +775,7 @@ class AdminPageState extends State<AdminPage> {
                   Container(
                     width: 6,
                     height: 6,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),

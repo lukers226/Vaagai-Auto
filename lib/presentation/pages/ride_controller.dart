@@ -6,12 +6,28 @@ class RideController {
   // Ride metrics
   double distance = 0.0;
   int secondsPassed = 0;
-  double fare = 59.0;
+  double fare = 100.0; // Will be updated from database
   double waitingCharge = 0.0;
-  int selectedWaitingTime = 0;
-  List<int> waitingTimes = [0, 5, 10, 15, 20, 25, 30];
   
-  // NEW: Trip timing
+  // Database fare structure
+  Map<String, dynamic>? fareData;
+  double baseFareFromDB = 100.0;
+  Map<int, double> waitingChargesFromDB = {
+    5: 10.0,
+    10: 20.0,
+    15: 30.0,
+    20: 40.0,
+    25: 50.0,
+    30: 60.0,
+  };
+  
+  // Waiting time toggle and timer
+  bool isWaitingTimerActive = false;
+  int waitingMinutesElapsed = 0;
+  int waitingSecondsElapsed = 0;
+  Timer? waitingTimer;
+  
+  // Trip timing
   DateTime? tripStartTime;
   DateTime? tripEndTime;
   
@@ -45,6 +61,129 @@ class RideController {
 
   double get totalFare => fare + waitingCharge;
 
+  // ENHANCED: Set fare data from database with improved parsing
+  void setFareDataFromDB(Map<String, dynamic> data) {
+    debugPrint('Setting fare data from database: $data');
+    fareData = data;
+    
+    // ENHANCED: Extract base fare with better error handling
+    final extractedBaseFare = _extractNumericValue(data['baseFare'], 100.0);
+    baseFareFromDB = extractedBaseFare;
+    fare = baseFareFromDB;
+    
+    // Update waiting charges from database with validation
+    waitingChargesFromDB = {
+      5: _extractNumericValue(data['waiting5min'], 10.0),
+      10: _extractNumericValue(data['waiting10min'], 20.0),
+      15: _extractNumericValue(data['waiting15min'], 30.0),
+      20: _extractNumericValue(data['waiting20min'], 40.0),
+      25: _extractNumericValue(data['waiting25min'], 50.0),
+      30: _extractNumericValue(data['waiting30min'], 60.0),
+    };
+    
+    debugPrint('✅ Fare data successfully set:');
+    debugPrint('📊 Base Fare: ₹${baseFareFromDB}');
+    debugPrint('⏱️ Waiting Charges: $waitingChargesFromDB');
+    
+    // Force UI update to show new fare immediately
+    onStatusChange?.call();
+  }
+
+  // ENHANCED: Improved numeric value extraction with comprehensive error handling
+  double _extractNumericValue(dynamic value, double defaultValue) {
+    debugPrint('Extracting numeric value from: $value (type: ${value.runtimeType})');
+    
+    if (value == null) {
+      debugPrint('❌ Value is null, using default: $defaultValue');
+      return defaultValue;
+    }
+    
+    // If it's already a number
+    if (value is num) {
+      debugPrint('✅ Value is already a number: ${value.toDouble()}');
+      return value.toDouble();
+    }
+    
+    // If it's a string representation of number
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) {
+        debugPrint('✅ Parsed string value: $parsed');
+        return parsed;
+      } else {
+        debugPrint('❌ Failed to parse string: $value, using default: $defaultValue');
+        return defaultValue;
+      }
+    }
+    
+    // ENHANCED: Handle MongoDB Extended JSON object with detailed logging
+    if (value is Map<String, dynamic>) {
+      debugPrint('🔍 Processing MongoDB Extended JSON: $value');
+      
+      // Handle $numberInt
+      if (value.containsKey('\$numberInt')) {
+        final numberIntValue = value['\$numberInt'];
+        debugPrint('📝 Found \$numberInt: $numberIntValue (type: ${numberIntValue.runtimeType})');
+        
+        if (numberIntValue is String) {
+          final parsed = double.tryParse(numberIntValue);
+          if (parsed != null) {
+            debugPrint('✅ Successfully parsed \$numberInt string: $parsed');
+            return parsed;
+          }
+        } else if (numberIntValue is num) {
+          debugPrint('✅ \$numberInt is already a number: ${numberIntValue.toDouble()}');
+          return numberIntValue.toDouble();
+        }
+        debugPrint('❌ Failed to parse \$numberInt, using default: $defaultValue');
+        return defaultValue;
+      }
+      
+      // Handle $numberLong
+      if (value.containsKey('\$numberLong')) {
+        final numberLongValue = value['\$numberLong'];
+        debugPrint('📝 Found \$numberLong: $numberLongValue (type: ${numberLongValue.runtimeType})');
+        
+        if (numberLongValue is String) {
+          final parsed = double.tryParse(numberLongValue);
+          if (parsed != null) {
+            debugPrint('✅ Successfully parsed \$numberLong string: $parsed');
+            return parsed;
+          }
+        } else if (numberLongValue is num) {
+          debugPrint('✅ \$numberLong is already a number: ${numberLongValue.toDouble()}');
+          return numberLongValue.toDouble();
+        }
+        debugPrint('❌ Failed to parse \$numberLong, using default: $defaultValue');
+        return defaultValue;
+      }
+      
+      // Handle $numberDouble
+      if (value.containsKey('\$numberDouble')) {
+        final numberDoubleValue = value['\$numberDouble'];
+        debugPrint('📝 Found \$numberDouble: $numberDoubleValue (type: ${numberDoubleValue.runtimeType})');
+        
+        if (numberDoubleValue is String) {
+          final parsed = double.tryParse(numberDoubleValue);
+          if (parsed != null) {
+            debugPrint('✅ Successfully parsed \$numberDouble string: $parsed');
+            return parsed;
+          }
+        } else if (numberDoubleValue is num) {
+          debugPrint('✅ \$numberDouble is already a number: ${numberDoubleValue.toDouble()}');
+          return numberDoubleValue.toDouble();
+        }
+        debugPrint('❌ Failed to parse \$numberDouble, using default: $defaultValue');
+        return defaultValue;
+      }
+      
+      debugPrint('❌ No recognized MongoDB numeric field found in: $value');
+    }
+    
+    debugPrint('❌ Could not extract numeric value from: $value (type: ${value.runtimeType}), using default: $defaultValue');
+    return defaultValue;
+  }
+
   void initialize({
     VoidCallback? onLocationUpdate,
     VoidCallback? onStatusChange,
@@ -62,6 +201,7 @@ class RideController {
     meterTimer?.cancel();
     locationTimer?.cancel();
     gpsMonitorTimer?.cancel();
+    waitingTimer?.cancel();
   }
 
   // GPS Monitoring
@@ -146,13 +286,64 @@ class RideController {
     return true;
   }
 
+  // Toggle waiting timer with proper second-by-second updates
+  void toggleWaitingTimer() {
+    if (isWaitingTimerActive) {
+      // Stop waiting timer
+      isWaitingTimerActive = false;
+      waitingTimer?.cancel();
+      debugPrint('Waiting timer stopped at ${waitingMinutesElapsed}:${waitingSecondsElapsed.toString().padLeft(2, '0')}');
+      onShowSnackBar?.call('Waiting timer stopped', true);
+    } else {
+      // Start waiting timer
+      isWaitingTimerActive = true;
+      waitingMinutesElapsed = 0;
+      waitingSecondsElapsed = 0;
+      waitingCharge = 0.0;
+      
+      // Timer runs every second
+      waitingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+        waitingSecondsElapsed++;
+        
+        // Check if a minute has passed
+        if (waitingSecondsElapsed >= 60) {
+          waitingSecondsElapsed = 0;
+          waitingMinutesElapsed++;
+          _updateWaitingChargeFromTimer();
+          debugPrint('Waiting timer: ${waitingMinutesElapsed} min - Charge: ₹${waitingCharge.toStringAsFixed(0)}');
+          onShowSnackBar?.call('Waiting: ${waitingMinutesElapsed} min - ₹${waitingCharge.toStringAsFixed(0)}', true);
+        }
+        
+        onStatusChange?.call(); // Update UI every second
+      });
+      
+      debugPrint('Waiting timer started');
+      onShowSnackBar?.call('Waiting timer started', true);
+    }
+    onStatusChange?.call();
+  }
+
+  // Update waiting charge based on timer
+  void _updateWaitingChargeFromTimer() {
+    double newCharge = 0.0;
+    
+    for (int minutes in waitingChargesFromDB.keys.toList()..sort()) {
+      if (waitingMinutesElapsed >= minutes) {
+        newCharge = waitingChargesFromDB[minutes] ?? 0.0;
+      }
+    }
+    
+    waitingCharge = newCharge;
+    debugPrint('Updated waiting charge: ₹${waitingCharge} for ${waitingMinutesElapsed} minutes');
+  }
+
   // Ride Control Methods
   Future<bool> startRide() async {
     bool hasPermission = await requestLocationPermission();
     if (!hasPermission) return false;
 
     isMeterOn = true;
-    tripStartTime = DateTime.now(); // NEW: Record start time
+    tripStartTime = DateTime.now();
     _startMeter();
     onStatusChange?.call();
     return true;
@@ -160,9 +351,16 @@ class RideController {
 
   void stopRide() {
     isMeterOn = false;
-    tripEndTime = DateTime.now(); // NEW: Record end time
+    tripEndTime = DateTime.now();
     meterTimer?.cancel();
     locationTimer?.cancel();
+    
+    // Stop waiting timer when ride ends
+    if (isWaitingTimerActive) {
+      isWaitingTimerActive = false;
+      waitingTimer?.cancel();
+    }
+    
     onStatusChange?.call();
   }
 
@@ -170,6 +368,12 @@ class RideController {
     meterTimer?.cancel();
     locationTimer?.cancel();
     gpsMonitorTimer?.cancel();
+    
+    // Cancel waiting timer
+    if (isWaitingTimerActive) {
+      isWaitingTimerActive = false;
+      waitingTimer?.cancel();
+    }
     
     resetMeter();
     
@@ -187,15 +391,17 @@ class RideController {
     distance = 0.0;
     totalDistanceTravelled = 0.0;
     secondsPassed = 0;
-    fare = 59.0;
+    fare = baseFareFromDB; // Reset to database base fare
     waitingCharge = 0.0;
     waitingSeconds = 0;
-    selectedWaitingTime = 0;
+    waitingMinutesElapsed = 0;
+    waitingSecondsElapsed = 0;
+    isWaitingTimerActive = false;
     isMoving = false;
     lastPosition = null;
     currentPosition = null;
-    tripStartTime = null; // NEW: Reset start time
-    tripEndTime = null; // NEW: Reset end time
+    tripStartTime = null;
+    tripEndTime = null;
     onStatusChange?.call();
   }
 
@@ -207,19 +413,6 @@ class RideController {
       if (!isMeterOn) return;
       
       secondsPassed++;
-      
-      if (!isMoving && selectedWaitingTime == 0) {
-        waitingSeconds++;
-        if (waitingSeconds >= 300) {
-          updateWaitingCharge();
-        }
-      } else if (isMoving) {
-        waitingSeconds = 0;
-        if (selectedWaitingTime == 0) {
-          waitingCharge = 0.0;
-        }
-      }
-      
       onStatusChange?.call();
     });
 
@@ -289,47 +482,18 @@ class RideController {
     }
   }
 
-  // Fare Calculation
+  // ENHANCED: Fare Calculation - Use database values
   void updateFare() {
     if (distance <= 1.0) {
-      fare = 59.0;
+      fare = baseFareFromDB;
     } else {
       double extraDistance = distance - 1.0;
-      fare = 59.0 + (extraDistance * 18.0);
+      fare = baseFareFromDB + (extraDistance * 18.0);
     }
+    debugPrint('💰 Fare updated: Base=₹${baseFareFromDB}, Distance=${distance.toStringAsFixed(2)}km, Total=₹${fare.toStringAsFixed(2)}');
   }
 
-  void updateWaitingCharge() {
-    int minutes = waitingSeconds ~/ 60;
-    if (minutes >= 10) {
-      waitingCharge = 20.0;
-    } else if (minutes >= 5) {
-      waitingCharge = 10.0;
-    } else {
-      waitingCharge = 0.0;
-    }
-  }
-
-  void updateSelectedWaitingTime(int newValue) {
-    selectedWaitingTime = newValue;
-    if (newValue == 0) {
-      waitingCharge = 0.0;
-    } else {
-      updateWaitingChargeFromDropdown();
-    }
-  }
-
-  void updateWaitingChargeFromDropdown() {
-    if (selectedWaitingTime >= 10) {
-      waitingCharge = 20.0;
-    } else if (selectedWaitingTime >= 5) {
-      waitingCharge = 10.0;
-    } else {
-      waitingCharge = 0.0;
-    }
-  }
-
-  // NEW: Get formatted trip times
+  // Get formatted trip times
   String getTripStartTime() {
     if (tripStartTime == null) return '--:--';
     return '${tripStartTime!.hour.toString().padLeft(2, '0')}:${tripStartTime!.minute.toString().padLeft(2, '0')}';
@@ -338,6 +502,12 @@ class RideController {
   String getTripEndTime() {
     if (tripEndTime == null) return '--:--';
     return '${tripEndTime!.hour.toString().padLeft(2, '0')}:${tripEndTime!.minute.toString().padLeft(2, '0')}';
+  }
+
+  // Get waiting timer display with proper MM:SS format
+  String getWaitingTimerDisplay() {
+    if (!isWaitingTimerActive) return '00:00';
+    return '${waitingMinutesElapsed.toString().padLeft(2, '0')}:${waitingSecondsElapsed.toString().padLeft(2, '0')}';
   }
 
   // Utility Methods
