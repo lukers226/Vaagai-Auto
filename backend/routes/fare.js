@@ -9,51 +9,58 @@ router.use((req, res, next) => {
   next();
 });
 
-// @route   POST /api/fares/add-perkm-field
-// @desc    One-time update to add perKmRate field to existing system fare
-// @access  Public (remove after use)
-router.post('/add-perkm-field', async (req, res) => {
+// @route   POST /api/fares/initialize
+// @desc    Initialize fare collection with default system fare
+// @access  Public (call once after deployment)
+router.post('/initialize', async (req, res) => {
   try {
-    console.log('🚀 Adding perKmRate field to existing system fare...');
+    console.log('🚀 Initializing fare collection...');
     
-    // Find the existing system fare
+    // Check if system fare already exists
     const existingFare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
-    if (!existingFare) {
-      return res.status(404).json({
-        success: false,
-        message: 'No existing system fare found'
-      });
-    }
-
-    // Check if perKmRate already exists
-    if (existingFare.perKmRate !== undefined) {
+    if (existingFare) {
       return res.status(200).json({
         success: true,
-        message: 'perKmRate field already exists',
+        message: 'System fare already exists',
         data: existingFare
       });
     }
 
-    // Add the perKmRate field with a default value
-    const defaultPerKmRate = 10; // Set your desired default rate
-    existingFare.perKmRate = defaultPerKmRate;
-    
-    const updatedFare = await existingFare.save();
-    
-    console.log('✅ Successfully added perKmRate field to existing document');
+    // Create default system fare
+    const defaultFareData = {
+      adminId: new mongoose.Types.ObjectId(),
+      baseFare: 25,           // Default base fare ₹25
+      perKmRate: 10,          // Default ₹10 per km
+      waiting5min: 5,         // Default waiting charges
+      waiting10min: 10,
+      waiting15min: 15,
+      waiting20min: 20,
+      waiting25min: 25,
+      waiting30min: 30,
+      isSystemDefault: true,
+      isActive: true
+    };
 
-    return res.status(200).json({
+    console.log('Creating default system fare:', defaultFareData);
+
+    const newFare = new Fare(defaultFareData);
+    const savedFare = await newFare.save();
+
+    console.log('✅ Default system fare created successfully:', savedFare._id);
+    console.log('✅ Fares collection created in MongoDB Atlas');
+
+    return res.status(201).json({
       success: true,
-      message: 'perKmRate field added successfully to existing system fare',
-      data: updatedFare
+      message: 'Fare collection initialized successfully with default system fare',
+      data: savedFare
     });
 
   } catch (error) {
-    console.error('❌ Error adding perKmRate field:', error);
+    console.error('❌ Error initializing fare collection:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error adding perKmRate field',
+      message: 'Error initializing fare collection',
       error: error.message
     });
   }
@@ -108,7 +115,7 @@ router.post('/', async (req, res) => {
     let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     console.log('Existing system fare found:', fare ? 'Yes' : 'No');
 
-    const adminId = new mongoose.Types.ObjectId(); // Default admin ID
+    const adminId = new mongoose.Types.ObjectId();
 
     if (fare) {
       // Update existing system fare
@@ -132,7 +139,7 @@ router.post('/', async (req, res) => {
         data: savedFare
       });
     } else {
-      // Create new system fare
+      // Create new system fare (this will create the collection)
       console.log('Creating new system fare');
       
       const newFareData = {
@@ -153,7 +160,8 @@ router.post('/', async (req, res) => {
 
       fare = new Fare(newFareData);
       const savedFare = await fare.save();
-      console.log('System fare successfully:', savedFare._id);
+      console.log('System fare created successfully:', savedFare._id);
+      console.log('✅ Fares collection created in MongoDB Atlas');
 
       return res.status(201).json({
         success: true,
@@ -182,7 +190,7 @@ router.post('/', async (req, res) => {
 });
 
 // @route   GET /api/fares
-// @desc    Get current system fare with automatic field addition
+// @desc    Get current system fare (auto-create if doesn't exist)
 // @access  Public
 router.get('/', async (req, res) => {
   console.log('GET /api/fares called');
@@ -192,27 +200,33 @@ router.get('/', async (req, res) => {
     console.log('System fare found:', fare ? 'Yes' : 'No');
 
     if (!fare) {
-      return res.status(404).json({
-        success: false,
-        message: 'No system fare configuration found'
-      });
-    }
+      console.log('⚠️ No system fare found, creating default...');
+      
+      // Auto-create default system fare
+      const defaultFareData = {
+        adminId: new mongoose.Types.ObjectId(),
+        baseFare: 25,
+        perKmRate: 10,
+        waiting5min: 5,
+        waiting10min: 10,
+        waiting15min: 15,
+        waiting20min: 20,
+        waiting25min: 25,
+        waiting30min: 30,
+        isSystemDefault: true,
+        isActive: true
+      };
 
-    // Auto-add perKmRate field if missing (backward compatibility)
-    let wasUpdated = false;
-    if (fare.perKmRate === undefined || fare.perKmRate === null) {
-      console.log('⚠️ perKmRate field missing, adding default value...');
-      fare.perKmRate = 10; // Default value
+      fare = new Fare(defaultFareData);
       await fare.save();
-      wasUpdated = true;
-      console.log('✅ Added perKmRate field with default value');
+      
+      console.log('✅ Default system fare created automatically');
+      console.log('✅ Fares collection created in MongoDB Atlas');
     }
 
     return res.status(200).json({
       success: true,
-      message: wasUpdated ? 
-        'System fare retrieved and updated with missing field' : 
-        'System fare retrieved successfully',
+      message: 'System fare retrieved successfully',
       data: fare
     });
   } catch (error) {
@@ -245,17 +259,26 @@ router.post('/calculate', async (req, res) => {
     let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
     if (!fare) {
-      return res.status(404).json({
-        success: false,
-        message: 'No system fare configuration found'
-      });
-    }
+      // Auto-create default if missing
+      console.log('⚠️ No system fare found for calculation, creating default...');
+      
+      const defaultFareData = {
+        adminId: new mongoose.Types.ObjectId(),
+        baseFare: 25,
+        perKmRate: 10,
+        waiting5min: 5,
+        waiting10min: 10,
+        waiting15min: 15,
+        waiting20min: 20,
+        waiting25min: 25,
+        waiting30min: 30,
+        isSystemDefault: true,
+        isActive: true
+      };
 
-    // Ensure perKmRate exists (backward compatibility)
-    if (!fare.perKmRate) {
-      fare.perKmRate = 10; // Default value
+      fare = new Fare(defaultFareData);
       await fare.save();
-      console.log('✅ Added missing perKmRate field during calculation');
+      console.log('✅ Default system fare created for calculation');
     }
 
     // Calculate fare components
