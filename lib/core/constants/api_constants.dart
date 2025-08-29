@@ -6,15 +6,14 @@ class ApiConstants {
   static const String getDriversEndpoint = "/admin/drivers";
   static const String healthEndpoint = "/";
 
-  // NEW: Admin profile endpoints
-  static const String adminLoginEndpoint = "/auth/admin-login";
-  static const String updateAdminProfileEndpoint = "/auth/admin"; // Will append /:phoneNumber/update
-
   // NEW: Fare management endpoints
   static const String faresEndpoint = "/fares";
   static const String createFareEndpoint = "/fares";
   static const String getFareEndpoint = "/fares"; // GET /fares/:userId
   static const String updateFareEndpoint = "/fares"; // PUT /fares/:userId
   static const String deleteFareEndpoint = "/fares"; // DELETE /fares/:userId
+  
 
+  static const String getAdminProfileEndpoint = "/auth/admin";
+  static const String updateAdminProfileEndpoint = "/auth/admin";
 }

@@ -31,7 +31,7 @@ router.get('/login/:phoneNumber', async (req, res) => {
 });
 
 // Admin profile routes
-router.get('/admin/:adminId', validateUserId, getAdminProfile);
-router.put('/admin/:adminId', validateUserId, validateAdminProfileUpdate, updateAdminProfile);
+router.get('/admin/', validateUserId, getAdminProfile);
+router.put('/admin/', validateUserId, validateAdminProfileUpdate, updateAdminProfile);
 
 module.exports = router;
