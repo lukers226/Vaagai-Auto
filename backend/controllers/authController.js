@@ -69,25 +69,30 @@ const login = async (req, res) => {
   }
 };
 
-// Get admin profile - FIXED: No adminId parameter needed
+// Get admin profile
 const getAdminProfile = async (req, res) => {
   try {
-    console.log('Getting admin profile...');
+    console.log('🔵 getAdminProfile function called');
     
     // Find the single admin user
     const admin = await User.findOne({ userType: 'admin' });
     
     if (!admin) {
-      console.log('No admin found');
+      console.log('❌ No admin found in database');
       return res.status(404).json({
         success: false,
         message: 'Admin profile not found'
       });
     }
 
-    console.log('Admin found:', admin);
+    console.log('✅ Admin found:', {
+      id: admin._id,
+      name: admin.name,
+      phoneNumber: admin.phoneNumber,
+      userType: admin.userType
+    });
 
-    res.status(200).json({
+    const responseData = {
       success: true,
       data: {
         _id: admin._id,
@@ -98,54 +103,66 @@ const getAdminProfile = async (req, res) => {
         createdAt: admin.createdAt,
         updatedAt: admin.updatedAt
       }
-    });
+    };
+
+    console.log('📤 Sending response:', JSON.stringify(responseData, null, 2));
+    res.status(200).json(responseData);
 
   } catch (error) {
-    console.error('Get admin profile error:', error);
+    console.error('❌ Get admin profile error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching admin profile'
+      message: 'Server error while fetching admin profile',
+      error: error.message
     });
   }
 };
 
-// Update admin profile - FIXED: No adminId parameter needed
+// Update admin profile
 const updateAdminProfile = async (req, res) => {
   try {
     const { name, phoneNumber, password } = req.body;
     
-    console.log('Updating admin profile with:', { name, phoneNumber, password: password ? '***' : undefined });
+    console.log('🔵 updateAdminProfile function called');
+    console.log('📥 Request data:', { name, phoneNumber, password: password ? '***' : undefined });
 
     // Find the single admin user
     const admin = await User.findOne({ userType: 'admin' });
     
     if (!admin) {
-      console.log('No admin found for update');
+      console.log('❌ No admin found for update');
       return res.status(404).json({
         success: false,
         message: 'Admin profile not found'
       });
     }
 
+    console.log('✅ Admin found for update:', {
+      id: admin._id,
+      currentName: admin.name,
+      currentPhone: admin.phoneNumber
+    });
+
     // Update fields
-    if (name !== undefined) {
+    if (name !== undefined && name !== null) {
       admin.name = name.trim();
+      console.log('📝 Updated name:', admin.name);
     }
     
-    if (phoneNumber !== undefined) {
+    if (phoneNumber !== undefined && phoneNumber !== null) {
       admin.phoneNumber = phoneNumber.trim();
+      console.log('📝 Updated phone:', admin.phoneNumber);
     }
     
-    if (password !== undefined) {
+    if (password !== undefined && password !== null) {
       admin.password = password;
+      console.log('📝 Updated password: ***');
     }
 
     admin.updatedAt = new Date();
     await admin.save();
 
-    console.log('Admin profile updated successfully');
-
-    res.status(200).json({
+    const responseData = {
       success: true,
       message: 'Admin profile updated successfully',
       data: {
@@ -157,13 +174,19 @@ const updateAdminProfile = async (req, res) => {
         createdAt: admin.createdAt,
         updatedAt: admin.updatedAt
       }
-    });
+    };
+
+    console.log('✅ Admin profile updated successfully');
+    console.log('📤 Sending response:', JSON.stringify(responseData, null, 2));
+    
+    res.status(200).json(responseData);
 
   } catch (error) {
-    console.error('Update admin profile error:', error);
+    console.error('❌ Update admin profile error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while updating admin profile'
+      message: 'Server error while updating admin profile',
+      error: error.message
     });
   }
 };

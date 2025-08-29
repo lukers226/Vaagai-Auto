@@ -23,18 +23,6 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// FIXED: Better trailing slash handling - Add slash if missing (not remove)
-app.use((req, res, next) => {
-  // Only add trailing slash for API routes and if it doesn't already have one
-  if (req.path !== '/' && !req.path.endsWith('/') && req.path.startsWith('/api/')) {
-    const query = req.url.slice(req.path.length);
-    const redirectPath = req.path + '/' + query;
-    console.log(`🔄 Redirecting ${req.path} to ${redirectPath}`);
-    return res.redirect(301, redirectPath);
-  }
-  next();
-});
-
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
@@ -44,12 +32,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes - These will now work with trailing slashes
-app.use('/api/auth/', authRoutes); // Note the trailing slash here
-app.use('/api/admin/', adminRoutes);
-app.use('/api/drivers/', rideRoutes);
-app.use('/api/rides/', rideRoutes);
-app.use('/api/fares/', fareRoutes);
+// Routes - NO trailing slashes to match Flutter requests
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/drivers', rideRoutes);
+app.use('/api/rides', rideRoutes);
+app.use('/api/fares', fareRoutes);
 
 // Default route
 app.get('/', (req, res) => {

@@ -32,9 +32,28 @@ class AdminService {
       );
 
       print('🟢 Response status: ${response.statusCode}');
-      print('🟢 Response body: ${response.body}');
+      print('🟢 Response headers: ${response.headers}');
+      print('🟢 Response body: "${response.body}"');
 
-      final responseData = jsonDecode(response.body);
+      // Handle empty response body (like from 301 redirects)
+      if (response.body.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Server returned empty response. Status: ${response.statusCode}',
+        };
+      }
+
+      // Handle non-JSON responses
+      Map<String, dynamic> responseData;
+      try {
+        responseData = jsonDecode(response.body);
+      } catch (e) {
+        print('🔴 JSON decode error: $e');
+        return {
+          'success': false,
+          'message': 'Invalid response format from server',
+        };
+      }
 
       if (response.statusCode == 200) {
         return {
@@ -44,7 +63,7 @@ class AdminService {
       } else {
         return {
           'success': false,
-          'message': responseData['message'] ?? 'Update failed',
+          'message': responseData['message'] ?? 'Update failed (Status: ${response.statusCode})',
         };
       }
     } catch (e) {
@@ -73,9 +92,28 @@ class AdminService {
       );
 
       print('🟢 Response status: ${response.statusCode}');
-      print('🟢 Response body: ${response.body}');
+      print('🟢 Response headers: ${response.headers}');
+      print('🟢 Response body: "${response.body}"');
 
-      final responseData = jsonDecode(response.body);
+      // Handle empty response body
+      if (response.body.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Server returned empty response. Status: ${response.statusCode}',
+        };
+      }
+
+      // Handle non-JSON responses
+      Map<String, dynamic> responseData;
+      try {
+        responseData = jsonDecode(response.body);
+      } catch (e) {
+        print('🔴 JSON decode error: $e');
+        return {
+          'success': false,
+          'message': 'Invalid response format from server',
+        };
+      }
 
       if (response.statusCode == 200) {
         return {
@@ -85,7 +123,7 @@ class AdminService {
       } else {
         return {
           'success': false,
-          'message': responseData['message'] ?? 'Failed to fetch profile',
+          'message': responseData['message'] ?? 'Failed to fetch profile (Status: ${response.statusCode})',
         };
       }
     } catch (e) {

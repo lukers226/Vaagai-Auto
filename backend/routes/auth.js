@@ -5,10 +5,10 @@ const { validateLogin, validateAdminProfileUpdate } = require('../middleware/val
 const router = express.Router();
 
 // POST route for proper API calls
-router.post('login', validateLogin, login); // Remove leading slash
+router.post('/login', validateLogin, login);
 
 // GET route for browser testing - TEMPORARY
-router.get('login/:phoneNumber', async (req, res) => { // Remove leading slash
+router.get('/login/:phoneNumber', async (req, res) => {
   try {
     const { phoneNumber } = req.params;
     
@@ -30,8 +30,17 @@ router.get('login/:phoneNumber', async (req, res) => { // Remove leading slash
   }
 });
 
-// Admin profile routes - Remove leading slashes
-router.get('admin', getAdminProfile); // This becomes /api/auth/admin
-router.put('admin', validateAdminProfileUpdate, updateAdminProfile); // This becomes /api/auth/admin
+// IMPORTANT: Routes that exactly match Flutter requests
+// These create: GET /api/auth/admin and PUT /api/auth/admin
+router.get('/admin', (req, res, next) => {
+  console.log('🔵 GET /admin route hit');
+  getAdminProfile(req, res, next);
+});
+
+router.put('/admin', (req, res, next) => {
+  console.log('🔵 PUT /admin route hit');
+  console.log('Request body:', req.body);
+  next();
+}, validateAdminProfileUpdate, updateAdminProfile);
 
 module.exports = router;
