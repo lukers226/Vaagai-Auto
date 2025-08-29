@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const connectDB = require('./config/database');
-const authRoutes = require('./routes/auth'); // Make sure file is named auth.js
+const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const rideRoutes = require('./routes/rides');
 const fareRoutes = require('./routes/fare');
@@ -12,6 +12,18 @@ const app = express();
 
 // Connect to MongoDB
 connectDB();
+
+// IMPORTANT: Add trailing slash middleware BEFORE other routes
+app.use((req, res, next) => {
+  if (req.path.slice(-1) === '/' && req.path.length > 1) {
+    // Remove trailing slash and redirect
+    const query = req.url.slice(req.path.length);
+    const safepath = req.path.slice(0, -1).replace(/\/+/g, '/');
+    res.redirect(301, safepath + query);
+  } else {
+    next();
+  }
+});
 
 // Middleware
 app.use(cors({
@@ -56,7 +68,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check route with detailed info
+// Health check route
 app.get('/health', async (req, res) => {
   try {
     const dbStatus = mongoose.connection.readyState;

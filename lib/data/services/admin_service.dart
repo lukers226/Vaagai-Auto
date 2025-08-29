@@ -19,19 +19,20 @@ class AdminService {
         'password': password,
       });
 
-      print('Updating admin profile at: $url'); // Debug log
-      print('Request body: $body'); // Debug log
+      print('🔵 Updating admin profile at: $url');
+      print('🔵 Request body: $body');
 
       final response = await http.put(
         url,
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: body,
       );
 
-      print('Response status: ${response.statusCode}'); // Debug log
-      print('Response body: ${response.body}'); // Debug log
+      print('🟢 Response status: ${response.statusCode}');
+      print('🟢 Response body: ${response.body}');
 
       final responseData = jsonDecode(response.body);
 
@@ -47,7 +48,7 @@ class AdminService {
         };
       }
     } catch (e) {
-      print('Error in updateAdminProfile: $e'); // Debug log
+      print('🔴 Error in updateAdminProfile: $e');
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
@@ -61,14 +62,18 @@ class AdminService {
         '${ApiConstants.baseUrl}${ApiConstants.getAdminProfileEndpoint}'
       );
 
-      print('Getting admin profile from: $url'); // Debug log
+      print('🔵 Getting admin profile from: $url');
 
-      final response = await http.get(url, headers: {
-        'Content-Type': 'application/json',
-      });
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
 
-      print('Response status: ${response.statusCode}'); // Debug log
-      print('Response body: ${response.body}'); // Debug log
+      print('🟢 Response status: ${response.statusCode}');
+      print('🟢 Response body: ${response.body}');
 
       final responseData = jsonDecode(response.body);
 
@@ -84,7 +89,7 @@ class AdminService {
         };
       }
     } catch (e) {
-      print('Error in getAdminProfile: $e'); // Debug log
+      print('🔴 Error in getAdminProfile: $e');
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',

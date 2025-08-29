@@ -30,8 +30,9 @@ router.get('/login/:phoneNumber', async (req, res) => {
   }
 });
 
-// Admin profile routes
-router.get('/admin', getAdminProfile); // GET /api/auth/admin
-router.put('/admin', validateAdminProfileUpdate, updateAdminProfile); // PUT /api/auth/admin
+// SOLUTION: Handle both with and without trailing slash
+// Admin profile routes - handle both /admin and /admin/
+router.get('/admin/?', getAdminProfile); // The /? makes trailing slash optional
+router.put('/admin/?', validateAdminProfileUpdate, updateAdminProfile);
 
 module.exports = router;
