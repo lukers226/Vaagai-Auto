@@ -18,7 +18,6 @@ const userSchema = new mongoose.Schema({
       return this.userType === 'driver' || this.userType === 'admin';
     }
   },
-  // NEW: Admin password field
   password: {
     type: String,
     required: function() {

@@ -11,6 +11,7 @@ const login = async (req, res) => {
       let admin = await User.findOne({ phoneNumber, userType: 'admin' });
       
       if (!admin) {
+        // Create new admin with all required fields
         admin = new User({
           phoneNumber,
           userType: 'admin',
@@ -18,6 +19,24 @@ const login = async (req, res) => {
           password: '123'
         });
         await admin.save();
+      } else {
+        // SOLUTION: Auto-update existing admin if missing fields
+        let needsUpdate = false;
+        
+        if (!admin.name) {
+          admin.name = 'admin';
+          needsUpdate = true;
+        }
+        
+        if (!admin.password) {
+          admin.password = '123';
+          needsUpdate = true;
+        }
+        
+        if (needsUpdate) {
+          await admin.save();
+          console.log('✅ Admin fields updated automatically');
+        }
       }
       
       return res.json({
@@ -49,7 +68,7 @@ const login = async (req, res) => {
   }
 };
 
-// NEW: Get admin profile
+// Get admin profile
 const getAdminProfile = async (req, res) => {
   try {
     const { adminId } = req.params;
@@ -84,7 +103,7 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
-// NEW: Update admin profile
+// Update admin profile
 const updateAdminProfile = async (req, res) => {
   try {
     const { adminId } = req.params;
