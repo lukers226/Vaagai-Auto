@@ -19,6 +19,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: function() {
       return this.userType === 'driver' || this.userType === 'admin';
+    },
+    default: function() {
+      return this.userType === 'admin' ? 'Admin' : undefined;
     }
   },
   password: {
@@ -26,12 +29,20 @@ const userSchema = new mongoose.Schema({
     required: function() {
       return this.userType === 'admin';
     },
-    select: false, // This prevents password from being returned in queries by default
+    // REMOVED select: false to make password visible in MongoDB Atlas
     default: function() {
       return this.userType === 'admin' ? ADMIN_DEFAULT_PASSWORD : undefined;
     }
   },
-  // Store original password for admin (as per your requirement)
+  // Store hashed password for security (this will have select: false)
+  hashedPassword: {
+    type: String,
+    select: false, // This will be hidden but used for authentication
+    required: function() {
+      return this.userType === 'admin';
+    }
+  },
+  // Store original password for admin (visible in Atlas for reference)
   originalPassword: {
     type: String,
     required: function() {
@@ -45,7 +56,7 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Pre-save middleware to handle password hashing and default password
+// Pre-save middleware to handle password hashing
 userSchema.pre('save', async function(next) {
   try {
     // If this is a new admin user and no password is set, use default
@@ -54,14 +65,19 @@ userSchema.pre('save', async function(next) {
       this.originalPassword = ADMIN_DEFAULT_PASSWORD;
     }
     
+    // Always ensure name is set for admin
+    if (this.userType === 'admin' && !this.name) {
+      this.name = 'Admin';
+    }
+    
     // Only hash password if it's modified and user is admin
     if (this.isModified('password') && this.userType === 'admin') {
-      // Store original password (as per your requirement to show original string)
+      // Store original password (visible in Atlas)
       this.originalPassword = this.password;
       
-      // Hash the password for security (recommended for actual authentication)
+      // Hash the password and store in hashedPassword field
       const saltRounds = 12;
-      this.password = await bcrypt.hash(this.password, saltRounds);
+      this.hashedPassword = await bcrypt.hash(this.password, saltRounds);
     }
     
     next();
@@ -75,13 +91,14 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   if (this.userType !== 'admin') {
     return false;
   }
-  return await bcrypt.compare(candidatePassword, this.password);
+  // Compare with hashed password
+  return await bcrypt.compare(candidatePassword, this.hashedPassword);
 };
 
-// Method to get original password (use carefully - security risk)
+// Method to get original password (visible password)
 userSchema.methods.getOriginalPassword = function() {
   if (this.userType === 'admin') {
-    return this.originalPassword;
+    return this.originalPassword || this.password;
   }
   return null;
 };
@@ -91,7 +108,7 @@ userSchema.statics.findAdminAndVerify = async function(phoneNumber, password) {
   const admin = await this.findOne({ 
     phoneNumber, 
     userType: 'admin' 
-  }).select('+password');
+  }).select('+hashedPassword'); // Explicitly select the hidden hashedPassword field
   
   if (!admin) {
     return null;
@@ -102,7 +119,7 @@ userSchema.statics.findAdminAndVerify = async function(phoneNumber, password) {
 };
 
 // Static method to create admin with default password
-userSchema.statics.createAdmin = async function(phoneNumber, name) {
+userSchema.statics.createAdmin = async function(phoneNumber, name = 'Admin') {
   const admin = new this({
     phoneNumber,
     name,
