@@ -3,9 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-// Import your ApiConstants
-// import 'path/to/your/api_constants.dart';
-
 class ApiConstants {
   static const String baseUrl = "https://vaagai-auto.onrender.com/api";
   static const String adminLoginEndpoint = "/auth/admin-login";
@@ -46,25 +43,53 @@ class AdminProfilePageState extends State<AdminProfilePage> {
     try {
       setState(() => _isLoading = true);
 
+      // Ensure all fields have values
+      final String phoneNumber = _phoneController.text.trim();
+      final String password = _passwordController.text.trim();
+      final String name = _nameController.text.trim();
+
+      // Check if any field is empty
+      if (phoneNumber.isEmpty || password.isEmpty || name.isEmpty) {
+        setState(() => _isLoading = false);
+        _showErrorDialog('Please fill all fields');
+        return false;
+      }
+
+      print('Validating credentials for: $phoneNumber with name: $name');
+
+      final Map<String, dynamic> requestBody = {
+        'phoneNumber': phoneNumber,
+        'password': password,
+      };
+
+      print('Request body: $requestBody');
+
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}${ApiConstants.adminLoginEndpoint}'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phoneNumber': _phoneController.text.trim(),
-          'password': _passwordController.text.trim(),
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
       );
 
       setState(() => _isLoading = false);
 
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Check if the name matches as well
-        if (data['success'] && data['user']['name'] == _nameController.text.trim()) {
-          return true;
-        } else if (data['success'] && data['user']['name'] != _nameController.text.trim()) {
-          _showErrorDialog('Name does not match our records');
-          return false;
+        
+        if (data['success'] == true && data['user'] != null) {
+          // Check if the name matches as well
+          final String dbName = data['user']['name']?.toString() ?? '';
+          if (dbName.toLowerCase() == name.toLowerCase()) {
+            return true;
+          } else {
+            _showErrorDialog('Name does not match our records.\nExpected: $dbName\nEntered: $name');
+            return false;
+          }
         } else {
           _showErrorDialog(data['message'] ?? 'Invalid credentials');
           return false;
@@ -76,7 +101,8 @@ class AdminProfilePageState extends State<AdminProfilePage> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      _showErrorDialog('Network error. Please try again.');
+      print('Validation error: $e');
+      _showErrorDialog('Network error. Please check your connection and try again.');
       return false;
     }
   }
@@ -86,21 +112,42 @@ class AdminProfilePageState extends State<AdminProfilePage> {
     try {
       setState(() => _isLoading = true);
 
+      // Ensure all parameters have values
+      final String currentPhone = _phoneController.text.trim();
+      final String password = _passwordController.text.trim();
+
+      if (currentPhone.isEmpty || password.isEmpty || newName.isEmpty || newPhone.isEmpty) {
+        setState(() => _isLoading = false);
+        _showErrorDialog('All fields are required');
+        return;
+      }
+
+      final Map<String, dynamic> requestBody = {
+        'name': newName,
+        'phoneNumber': newPhone,
+        'password': password,
+      };
+
+      print('Update request body: $requestBody');
+      print('Update URL: ${ApiConstants.baseUrl}${ApiConstants.updateAdminProfileEndpoint}/$currentPhone/update');
+
       final response = await http.put(
-        Uri.parse('${ApiConstants.baseUrl}${ApiConstants.updateAdminProfileEndpoint}/${_phoneController.text.trim()}/update'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': newName,
-          'phoneNumber': newPhone,
-          'password': _passwordController.text.trim(), // For verification
-        }),
+        Uri.parse('${ApiConstants.baseUrl}${ApiConstants.updateAdminProfileEndpoint}/$currentPhone/update'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
       );
 
       setState(() => _isLoading = false);
 
+      print('Update response status: ${response.statusCode}');
+      print('Update response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['success']) {
+        if (data['success'] == true) {
           _showSuccessDialog('Profile updated successfully!');
           // Clear the form
           _nameController.clear();
@@ -115,116 +162,142 @@ class AdminProfilePageState extends State<AdminProfilePage> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      _showErrorDialog('Network error. Please try again.');
+      print('Update error: $e');
+      _showErrorDialog('Network error. Please check your connection and try again.');
     }
   }
 
   // Show update dialog
   void _showUpdateDialog() {
-    _newNameController.text = _nameController.text;
-    _newPhoneController.text = _phoneController.text;
+    // Pre-fill with current values
+    _newNameController.text = _nameController.text.trim();
+    _newPhoneController.text = _phoneController.text.trim();
     
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: Text(
-            'Update Profile',
-            style: GoogleFonts.lato(
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Enter new details to update your profile',
-                  style: GoogleFonts.lato(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              title: Text(
+                'Update Profile',
+                style: GoogleFonts.lato(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Enter new details to update your profile',
+                      style: GoogleFonts.lato(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    TextFormField(
+                      controller: _newNameController,
+                      decoration: InputDecoration(
+                        labelText: 'New Name',
+                        prefixIcon: Icon(Icons.person, color: Colors.black),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.yellow[600]!, width: 2),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        // This ensures the dialog updates when text changes
+                        setDialogState(() {});
+                      },
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: _newPhoneController,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      decoration: InputDecoration(
+                        labelText: 'New Phone Number',
+                        prefixIcon: Icon(Icons.phone, color: Colors.black),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.yellow[600]!, width: 2),
+                        ),
+                        counterText: '', // Hide character counter
+                      ),
+                      onChanged: (value) {
+                        // Only allow numbers
+                        if (value.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(value)) {
+                          _newPhoneController.text = value.replaceAll(RegExp(r'[^0-9]'), '');
+                          _newPhoneController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _newPhoneController.text.length),
+                          );
+                        }
+                        setDialogState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey[600]),
                   ),
                 ),
-                SizedBox(height: 20),
-                TextFormField(
-                  controller: _newNameController,
-                  decoration: InputDecoration(
-                    labelText: 'New Name',
-                    prefixIcon: Icon(Icons.person, color: Colors.black),
-                    border: OutlineInputBorder(
+                ElevatedButton(
+                  onPressed: (_newNameController.text.trim().isEmpty ||
+                          _newPhoneController.text.trim().isEmpty ||
+                          _newPhoneController.text.trim().length != 10)
+                      ? null
+                      : () async {
+                          final String newName = _newNameController.text.trim();
+                          final String newPhone = _newPhoneController.text.trim();
+
+                          // Validate phone number format
+                          if (!RegExp(r'^[0-9]{10}$').hasMatch(newPhone)) {
+                            _showErrorDialog('Phone number must be exactly 10 digits');
+                            return;
+                          }
+
+                          // Validate name
+                          if (newName.length < 2) {
+                            _showErrorDialog('Name must be at least 2 characters');
+                            return;
+                          }
+
+                          Navigator.of(context).pop();
+                          await _updateAdminProfile(newName, newPhone);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.yellow,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.yellow[600]!, width: 2),
                     ),
                   ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _newPhoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'New Phone Number',
-                    prefixIcon: Icon(Icons.phone, color: Colors.black),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.yellow[600]!, width: 2),
-                    ),
+                  child: Text(
+                    'Submit',
+                    style: GoogleFonts.lato(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (_newNameController.text.trim().isEmpty ||
-                    _newPhoneController.text.trim().isEmpty) {
-                  _showErrorDialog('Please fill all fields');
-                  return;
-                }
-
-                // Validate phone number format
-                if (!RegExp(r'^[0-9]{10}$').hasMatch(_newPhoneController.text.trim())) {
-                  _showErrorDialog('Phone number must be 10 digits');
-                  return;
-                }
-                
-                Navigator.of(context).pop();
-                await _updateAdminProfile(
-                  _newNameController.text.trim(),
-                  _newPhoneController.text.trim(),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.yellow,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Submit',
-                style: GoogleFonts.lato(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -289,16 +362,24 @@ class AdminProfilePageState extends State<AdminProfilePage> {
   // Handle update profile button press
   void _handleUpdateProfile() async {
     // Validate form fields
-    if (_nameController.text.trim().isEmpty ||
-        _phoneController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
+    final String name = _nameController.text.trim();
+    final String phone = _phoneController.text.trim();
+    final String password = _passwordController.text.trim();
+
+    if (name.isEmpty || phone.isEmpty || password.isEmpty) {
       _showErrorDialog('Please fill all fields');
       return;
     }
 
     // Validate phone number format
-    if (!RegExp(r'^[0-9]{10}$').hasMatch(_phoneController.text.trim())) {
-      _showErrorDialog('Phone number must be 10 digits');
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(phone)) {
+      _showErrorDialog('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    // Validate name length
+    if (name.length < 2) {
+      _showErrorDialog('Name must be at least 2 characters');
       return;
     }
 
@@ -443,6 +524,7 @@ class AdminProfilePageState extends State<AdminProfilePage> {
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        maxLength: 10,
                         decoration: InputDecoration(
                           labelText: 'Phone Number',
                           hintText: 'Enter mobile number',
@@ -455,7 +537,17 @@ class AdminProfilePageState extends State<AdminProfilePage> {
                             borderSide: BorderSide(color: Colors.yellow[600]!, width: 2),
                           ),
                           contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          counterText: '', // Hide character counter
                         ),
+                        onChanged: (value) {
+                          // Only allow numbers
+                          if (value.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(value)) {
+                            _phoneController.text = value.replaceAll(RegExp(r'[^0-9]'), '');
+                            _phoneController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: _phoneController.text.length),
+                            );
+                          }
+                        },
                       ),
                       
                       SizedBox(height: 20),

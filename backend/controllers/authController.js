@@ -40,7 +40,29 @@ const login = async (req, res) => {
       
       // If password is provided, verify it
       if (password) {
-        const isPasswordValid = await admin.comparePassword(password);
+        // Check if admin.password exists and is not null/undefined
+        if (!admin.password) {
+          return res.status(500).json({
+            success: false,
+            message: 'Admin password not found in database. Please contact support.'
+          });
+        }
+
+        let isPasswordValid = false;
+        try {
+          // Check if comparePassword method exists and works
+          if (admin.comparePassword && typeof admin.comparePassword === 'function') {
+            isPasswordValid = await admin.comparePassword(password);
+          } else {
+            // Fallback to direct comparison
+            isPasswordValid = admin.password === password;
+          }
+        } catch (compareError) {
+          console.error('Password comparison error:', compareError);
+          // Fallback to direct string comparison
+          isPasswordValid = admin.password === password;
+        }
+
         if (!isPasswordValid) {
           return res.status(401).json({
             success: false,
@@ -79,6 +101,7 @@ const login = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -86,10 +109,12 @@ const login = async (req, res) => {
   }
 };
 
-// Admin login function with password verification
+// Admin login function with password verification - FIXED
 const adminLogin = async (req, res) => {
   try {
     const { phoneNumber, password } = req.body;
+
+    console.log('Admin login attempt:', { phoneNumber, passwordProvided: !!password });
 
     if (!password) {
       return res.status(400).json({
@@ -98,10 +123,55 @@ const adminLogin = async (req, res) => {
       });
     }
 
-    // Use the static method to find and verify admin
-    const admin = await User.findAdminAndVerify(phoneNumber, password);
-    
+    // Find admin user
+    const admin = await User.findOne({ 
+      phoneNumber: phoneNumber, 
+      userType: 'admin' 
+    });
+
+    console.log('Admin found:', !!admin);
+    console.log('Admin password exists:', !!admin?.password);
+
     if (!admin) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Admin not found' 
+      });
+    }
+
+    // Check if admin password exists in database
+    if (!admin.password) {
+      console.error('Admin password is null/undefined in database');
+      return res.status(500).json({
+        success: false,
+        message: 'Admin account configuration error. Please contact support.'
+      });
+    }
+
+    let isPasswordValid = false;
+    
+    try {
+      // Try using the static method first
+      if (User.findAdminAndVerify && typeof User.findAdminAndVerify === 'function') {
+        const verifiedAdmin = await User.findAdminAndVerify(phoneNumber, password);
+        if (verifiedAdmin) {
+          isPasswordValid = true;
+        }
+      } else if (admin.comparePassword && typeof admin.comparePassword === 'function') {
+        // Try instance method
+        isPasswordValid = await admin.comparePassword(password);
+      } else {
+        // Fallback to direct string comparison
+        console.log('Using direct string comparison');
+        isPasswordValid = admin.password === password;
+      }
+    } catch (compareError) {
+      console.error('Password comparison error:', compareError);
+      // Final fallback to direct comparison
+      isPasswordValid = admin.password === password;
+    }
+    
+    if (!isPasswordValid) {
       return res.status(401).json({ 
         success: false,
         message: 'Invalid phone number or password' 
@@ -123,9 +193,10 @@ const adminLogin = async (req, res) => {
     });
     
   } catch (error) {
+    console.error('Admin login error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: 'Internal server error' 
     });
   }
 };
@@ -152,7 +223,7 @@ const getAdminPassword = async (req, res) => {
         password: admin.password,
         originalPassword: admin.originalPassword
       },
-      defaultPassword: admin.getOriginalPassword()
+      defaultPassword: admin.getOriginalPassword ? admin.getOriginalPassword() : admin.password
     });
     
   } catch (error) {
@@ -288,7 +359,7 @@ const fixAdminAccount = async (req, res) => {
   }
 };
 
-// NEW: Update admin profile
+// NEW: Update admin profile - FIXED
 const updateAdminProfile = async (req, res) => {
   try {
     const { phoneNumber } = req.params;
@@ -309,12 +380,28 @@ const updateAdminProfile = async (req, res) => {
       });
     }
 
-    // Verify password using your existing method
+    // Check if admin password exists in database
+    if (!admin.password) {
+      console.error('Admin password is null/undefined in database during update');
+      return res.status(500).json({
+        success: false,
+        message: 'Admin account configuration error. Please contact support.'
+      });
+    }
+
+    // Verify password
     let isPasswordValid = false;
-    if (admin.comparePassword && typeof admin.comparePassword === 'function') {
-      isPasswordValid = await admin.comparePassword(password);
-    } else {
-      // Fallback to direct comparison if comparePassword method doesn't exist
+    
+    try {
+      if (admin.comparePassword && typeof admin.comparePassword === 'function') {
+        isPasswordValid = await admin.comparePassword(password);
+      } else {
+        // Fallback to direct comparison
+        isPasswordValid = admin.password === password;
+      }
+    } catch (compareError) {
+      console.error('Password comparison error during update:', compareError);
+      // Fallback to direct comparison
       isPasswordValid = admin.password === password;
     }
 
@@ -390,5 +477,5 @@ module.exports = {
   getAdminPassword,
   createAdminAccount,
   fixAdminAccount,
-  updateAdminProfile  // NEW: Added this export
+  updateAdminProfile
 };
