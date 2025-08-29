@@ -288,10 +288,107 @@ const fixAdminAccount = async (req, res) => {
   }
 };
 
+// NEW: Update admin profile
+const updateAdminProfile = async (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    const { name, phoneNumber: newPhoneNumber, password } = req.body;
+
+    console.log('Update admin profile request:', { phoneNumber, name, newPhoneNumber });
+
+    // First find the admin
+    const admin = await User.findOne({ 
+      phoneNumber: phoneNumber, 
+      userType: 'admin' 
+    });
+
+    if (!admin) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Admin not found' 
+      });
+    }
+
+    // Verify password using your existing method
+    let isPasswordValid = false;
+    if (admin.comparePassword && typeof admin.comparePassword === 'function') {
+      isPasswordValid = await admin.comparePassword(password);
+    } else {
+      // Fallback to direct comparison if comparePassword method doesn't exist
+      isPasswordValid = admin.password === password;
+    }
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid password' 
+      });
+    }
+
+    // Check if new phone number is already taken by another user
+    if (newPhoneNumber !== phoneNumber) {
+      const existingUser = await User.findOne({ 
+        phoneNumber: newPhoneNumber,
+        _id: { $ne: admin._id } // Exclude current admin
+      });
+      
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number is already registered'
+        });
+      }
+    }
+
+    // Update the admin profile
+    const updateData = {
+      name: name,
+      phoneNumber: newPhoneNumber,
+      updatedAt: new Date()
+    };
+
+    const updatedAdmin = await User.findOneAndUpdate(
+      { phoneNumber: phoneNumber, userType: 'admin' },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedAdmin) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to update profile' 
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        _id: updatedAdmin._id,
+        name: updatedAdmin.name,
+        phoneNumber: updatedAdmin.phoneNumber,
+        userType: updatedAdmin.userType,
+        password: updatedAdmin.password,
+        originalPassword: updatedAdmin.originalPassword,
+        createdAt: updatedAdmin.createdAt,
+        updatedAt: updatedAdmin.updatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Update admin profile error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error' 
+    });
+  }
+};
+
 module.exports = {
   login,
   adminLogin,
   getAdminPassword,
   createAdminAccount,
-  fixAdminAccount
+  fixAdminAccount,
+  updateAdminProfile  // NEW: Added this export
 };

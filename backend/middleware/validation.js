@@ -18,7 +18,7 @@ const validateLogin = (req, res, next) => {
   next();
 };
 
-// NEW: Validate admin login with password
+// Validate admin login with password
 const validateAdminLogin = (req, res, next) => {
   const { phoneNumber, password } = req.body;
   
@@ -122,7 +122,7 @@ const validateUpdateRide = (req, res, next) => {
   next();
 };
 
-// NEW: Validate ride completion data
+// Validate ride completion data
 const validateRideCompletion = (req, res, next) => {
   const { rideEarnings, tripData } = req.body;
   
@@ -195,7 +195,7 @@ const validateRideCompletion = (req, res, next) => {
   next();
 };
 
-// NEW: Validate user ID parameter
+// Validate user ID parameter
 const validateUserId = (req, res, next) => {
   const { userId } = req.params;
   
@@ -224,7 +224,7 @@ const validateUserId = (req, res, next) => {
   next();
 };
 
-// NEW: Validate phone number parameter for admin password retrieval
+// Validate phone number parameter for admin password retrieval
 const validatePhoneNumberParam = (req, res, next) => {
   const { phoneNumber } = req.params;
   
@@ -245,7 +245,7 @@ const validatePhoneNumberParam = (req, res, next) => {
   next();
 };
 
-// NEW: Validate password change request
+// Validate password change request
 const validatePasswordChange = (req, res, next) => {
   const { currentPassword, newPassword } = req.body;
   
@@ -280,14 +280,80 @@ const validatePasswordChange = (req, res, next) => {
   next();
 };
 
+// NEW: Validate update admin request
+const validateUpdateAdmin = (req, res, next) => {
+  const { name, phoneNumber, password } = req.body;
+  const { phoneNumber: paramPhoneNumber } = req.params;
+
+  // Validate required fields
+  if (!name || !phoneNumber || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name, phone number, and password are required'
+    });
+  }
+
+  // Validate phone number format for new phone number
+  const phoneRegex = /^[0-9]{10}$/;
+  if (!phoneRegex.test(phoneNumber)) {
+    return res.status(400).json({
+      success: false,
+      message: 'New phone number must be 10 digits'
+    });
+  }
+
+  // Validate phone number format for URL parameter
+  if (!phoneRegex.test(paramPhoneNumber)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid phone number in URL'
+    });
+  }
+
+  // Validate name
+  if (typeof name !== 'string' || name.trim().length < 2) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name must be at least 2 characters long'
+    });
+  }
+
+  // Validate name contains only letters and spaces
+  if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name can only contain letters and spaces'
+    });
+  }
+
+  // Validate password
+  if (typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 6 characters long'
+    });
+  }
+
+  // Additional validation: Check if name is not too long
+  if (name.trim().length > 50) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name must not exceed 50 characters'
+    });
+  }
+
+  next();
+};
+
 module.exports = {
   validateLogin,
-  validateAdminLogin,           // NEW
+  validateAdminLogin,           
   validateAddDriver,
   validateUpdateEarnings,
   validateUpdateRide,
   validateRideCompletion,
   validateUserId,
-  validatePhoneNumberParam,     // NEW
-  validatePasswordChange        // NEW
+  validatePhoneNumberParam,     
+  validatePasswordChange,
+  validateUpdateAdmin           // NEW: Added this export
 };
