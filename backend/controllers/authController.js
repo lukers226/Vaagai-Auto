@@ -10,9 +10,17 @@ const login = async (req, res) => {
     if (phoneNumber === adminPhoneNumber) {
       let admin = await User.findOne({ phoneNumber, userType: 'admin' });
       
-      // If admin doesn't exist, create one with default password and name
+      // If admin doesn't exist, create one with explicit fields
       if (!admin) {
-        admin = await User.createAdmin(phoneNumber, 'Admin');
+        admin = new User({
+          phoneNumber: adminPhoneNumber,
+          userType: 'admin',
+          name: 'Admin',
+          password: 'vaagaiauto123',
+          originalPassword: 'vaagaiauto123'
+        });
+        
+        await admin.save();
         
         return res.json({
           success: true,
@@ -21,11 +29,12 @@ const login = async (req, res) => {
             phoneNumber: admin.phoneNumber,
             userType: admin.userType,
             name: admin.name,
+            password: admin.password,
             createdAt: admin.createdAt,
             updatedAt: admin.updatedAt
           },
           message: 'Admin account created successfully',
-          defaultPassword: admin.getOriginalPassword()
+          defaultPassword: admin.password
         });
       }
       
@@ -47,6 +56,7 @@ const login = async (req, res) => {
           phoneNumber: admin.phoneNumber,
           userType: admin.userType,
           name: admin.name,
+          password: admin.password,
           createdAt: admin.createdAt,
           updatedAt: admin.updatedAt
         }
@@ -106,6 +116,7 @@ const adminLogin = async (req, res) => {
         phoneNumber: admin.phoneNumber,
         name: admin.name,
         userType: admin.userType,
+        password: admin.password,
         createdAt: admin.createdAt,
         updatedAt: admin.updatedAt
       }
@@ -135,6 +146,12 @@ const getAdminPassword = async (req, res) => {
     
     res.json({
       success: true,
+      admin: {
+        phoneNumber: admin.phoneNumber,
+        name: admin.name,
+        password: admin.password,
+        originalPassword: admin.originalPassword
+      },
       defaultPassword: admin.getOriginalPassword()
     });
     
@@ -146,22 +163,48 @@ const getAdminPassword = async (req, res) => {
   }
 };
 
-// Force create admin (for testing/setup)
+// Force create/update admin account
 const createAdminAccount = async (req, res) => {
   try {
     const { phoneNumber, name } = req.body;
+    const adminName = name || 'Admin';
     
     // Check if admin already exists
-    const existingAdmin = await User.findOne({ phoneNumber, userType: 'admin' });
-    if (existingAdmin) {
-      return res.status(400).json({
-        success: false,
-        message: 'Admin with this phone number already exists'
+    let admin = await User.findOne({ phoneNumber, userType: 'admin' });
+    
+    if (admin) {
+      // Update existing admin with missing fields
+      admin.name = adminName;
+      admin.password = 'vaagaiauto123';
+      admin.originalPassword = 'vaagaiauto123';
+      await admin.save();
+      
+      return res.json({
+        success: true,
+        message: 'Admin account updated successfully',
+        user: {
+          _id: admin._id,
+          phoneNumber: admin.phoneNumber,
+          name: admin.name,
+          userType: admin.userType,
+          password: admin.password,
+          originalPassword: admin.originalPassword,
+          createdAt: admin.createdAt,
+          updatedAt: admin.updatedAt
+        }
       });
     }
     
-    // Create admin
-    const admin = await User.createAdmin(phoneNumber, name || 'Admin');
+    // Create new admin with explicit field assignment
+    admin = new User({
+      phoneNumber: phoneNumber,
+      userType: 'admin',
+      name: adminName,
+      password: 'vaagaiauto123',
+      originalPassword: 'vaagaiauto123'
+    });
+    
+    await admin.save();
     
     res.status(201).json({
       success: true,
@@ -171,12 +214,70 @@ const createAdminAccount = async (req, res) => {
         phoneNumber: admin.phoneNumber,
         name: admin.name,
         userType: admin.userType,
-        password: admin.password, // This will show the plain password
+        password: admin.password,
         originalPassword: admin.originalPassword,
         createdAt: admin.createdAt,
         updatedAt: admin.updatedAt
-      },
-      defaultPassword: admin.getOriginalPassword()
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Fix existing admin account (add missing fields)
+const fixAdminAccount = async (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    
+    const admin = await User.findOne({ phoneNumber, userType: 'admin' });
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+    
+    // Update missing fields
+    let updated = false;
+    
+    if (!admin.name) {
+      admin.name = 'Admin';
+      updated = true;
+    }
+    
+    if (!admin.password) {
+      admin.password = 'vaagaiauto123';
+      updated = true;
+    }
+    
+    if (!admin.originalPassword) {
+      admin.originalPassword = 'vaagaiauto123';
+      updated = true;
+    }
+    
+    if (updated) {
+      await admin.save();
+    }
+    
+    res.json({
+      success: true,
+      message: updated ? 'Admin account fixed successfully' : 'Admin account is already complete',
+      user: {
+        _id: admin._id,
+        phoneNumber: admin.phoneNumber,
+        name: admin.name,
+        userType: admin.userType,
+        password: admin.password,
+        originalPassword: admin.originalPassword,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt
+      }
     });
     
   } catch (error) {
@@ -191,5 +292,6 @@ module.exports = {
   login,
   adminLogin,
   getAdminPassword,
-  createAdminAccount
+  createAdminAccount,
+  fixAdminAccount
 };
