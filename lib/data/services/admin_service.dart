@@ -19,6 +19,9 @@ class AdminService {
         'password': password,
       });
 
+      print('Updating admin profile at: $url'); // Debug log
+      print('Request body: $body'); // Debug log
+
       final response = await http.put(
         url,
         headers: {
@@ -27,12 +30,15 @@ class AdminService {
         body: body,
       );
 
+      print('Response status: ${response.statusCode}'); // Debug log
+      print('Response body: ${response.body}'); // Debug log
+
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'data': responseData,
+          'data': responseData['data'] ?? responseData,
         };
       } else {
         return {
@@ -41,6 +47,7 @@ class AdminService {
         };
       }
     } catch (e) {
+      print('Error in updateAdminProfile: $e'); // Debug log
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
@@ -54,13 +61,21 @@ class AdminService {
         '${ApiConstants.baseUrl}${ApiConstants.getAdminProfileEndpoint}'
       );
 
-      final response = await http.get(url);
+      print('Getting admin profile from: $url'); // Debug log
+
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+      });
+
+      print('Response status: ${response.statusCode}'); // Debug log
+      print('Response body: ${response.body}'); // Debug log
+
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         return {
           'success': true,
-          'data': responseData,
+          'data': responseData['data'] ?? responseData,
         };
       } else {
         return {
@@ -69,6 +84,7 @@ class AdminService {
         };
       }
     } catch (e) {
+      print('Error in getAdminProfile: $e'); // Debug log
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',

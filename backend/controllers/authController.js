@@ -20,7 +20,7 @@ const login = async (req, res) => {
         });
         await admin.save();
       } else {
-        // SOLUTION: Auto-update existing admin if missing fields
+        // Auto-update existing admin if missing fields
         let needsUpdate = false;
         
         if (!admin.name) {
@@ -61,6 +61,7 @@ const login = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -68,71 +69,86 @@ const login = async (req, res) => {
   }
 };
 
-// Get admin profile
+// Get admin profile - FIXED: No adminId parameter needed
 const getAdminProfile = async (req, res) => {
   try {
-    const { adminId } = req.params;
+    console.log('Getting admin profile...');
     
-    const admin = await User.findOne({ _id: adminId, userType: 'admin' });
+    // Find the single admin user
+    const admin = await User.findOne({ userType: 'admin' });
     
     if (!admin) {
+      console.log('No admin found');
       return res.status(404).json({
         success: false,
-        message: 'Admin not found'
+        message: 'Admin profile not found'
       });
     }
 
-    res.json({
+    console.log('Admin found:', admin);
+
+    res.status(200).json({
       success: true,
-      admin: {
+      data: {
         _id: admin._id,
         phoneNumber: admin.phoneNumber,
         userType: admin.userType,
-        name: admin.name,
-        password: admin.password,
+        name: admin.name || 'admin',
+        password: admin.password || '123',
         createdAt: admin.createdAt,
         updatedAt: admin.updatedAt
       }
     });
 
   } catch (error) {
+    console.error('Get admin profile error:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Server error while fetching admin profile'
     });
   }
 };
 
-// Update admin profile
+// Update admin profile - FIXED: No adminId parameter needed
 const updateAdminProfile = async (req, res) => {
   try {
-    const { adminId } = req.params;
-    const { name, password } = req.body;
+    const { name, phoneNumber, password } = req.body;
+    
+    console.log('Updating admin profile with:', { name, phoneNumber, password: password ? '***' : undefined });
 
-    const admin = await User.findOne({ _id: adminId, userType: 'admin' });
+    // Find the single admin user
+    const admin = await User.findOne({ userType: 'admin' });
     
     if (!admin) {
+      console.log('No admin found for update');
       return res.status(404).json({
         success: false,
-        message: 'Admin not found'
+        message: 'Admin profile not found'
       });
     }
 
-    // Update fields if provided
+    // Update fields
     if (name !== undefined) {
-      admin.name = name;
+      admin.name = name.trim();
+    }
+    
+    if (phoneNumber !== undefined) {
+      admin.phoneNumber = phoneNumber.trim();
     }
     
     if (password !== undefined) {
       admin.password = password;
     }
 
+    admin.updatedAt = new Date();
     await admin.save();
 
-    res.json({
+    console.log('Admin profile updated successfully');
+
+    res.status(200).json({
       success: true,
       message: 'Admin profile updated successfully',
-      admin: {
+      data: {
         _id: admin._id,
         phoneNumber: admin.phoneNumber,
         userType: admin.userType,
@@ -144,9 +160,10 @@ const updateAdminProfile = async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Update admin profile error:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Server error while updating admin profile'
     });
   }
 };

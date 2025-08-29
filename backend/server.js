@@ -2,10 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const connectDB = require('./config/database');
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth'); // Make sure file is named auth.js
 const adminRoutes = require('./routes/admin');
 const rideRoutes = require('./routes/rides');
-const fareRoutes = require('./routes/fare'); // Add fare routes
+const fareRoutes = require('./routes/fare');
 require('dotenv').config();
 
 const app = express();
@@ -15,7 +15,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://vaagai-auto.onrender.com'], // Add your domains
+  origin: ['http://localhost:3000', 'https://vaagai-auto.onrender.com'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -26,6 +26,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+  }
   next();
 });
 
@@ -34,7 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', rideRoutes);
 app.use('/api/rides', rideRoutes);
-app.use('/api/fares', fareRoutes); // IMPORTANT: Add fare routes
+app.use('/api/fares', fareRoutes);
 
 // Default route
 app.get('/', (req, res) => {
@@ -42,7 +45,9 @@ app.get('/', (req, res) => {
     message: 'Auto Meter API is running!',
     timestamp: new Date().toISOString(),
     endpoints: [
-      '/api/auth',
+      'GET  /api/auth/admin - Get admin profile',
+      'PUT  /api/auth/admin - Update admin profile',
+      'POST /api/auth/login - Login',
       '/api/admin', 
       '/api/drivers',
       '/api/rides',
@@ -85,6 +90,7 @@ app.use((error, req, res, next) => {
 
 // 404 handler
 app.use('*', (req, res) => {
+  console.log(`404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
     message: `Route ${req.originalUrl} not found`
@@ -95,4 +101,8 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('Available routes:');
+  console.log('  GET  /api/auth/admin');
+  console.log('  PUT  /api/auth/admin');
+  console.log('  POST /api/auth/login');
 });

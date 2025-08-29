@@ -1,6 +1,6 @@
 const express = require('express');
 const { login, getAdminProfile, updateAdminProfile } = require('../controllers/authController');
-const { validateLogin, validateUserId, validateAdminProfileUpdate } = require('../middleware/validation');
+const { validateLogin, validateAdminProfileUpdate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -31,7 +31,7 @@ router.get('/login/:phoneNumber', async (req, res) => {
 });
 
 // Admin profile routes
-router.get('/admin/:adminId', validateUserId, getAdminProfile);
-router.put('/admin/:adminId', validateUserId, validateAdminProfileUpdate, updateAdminProfile);
+router.get('/admin', getAdminProfile); // GET /api/auth/admin
+router.put('/admin', validateAdminProfileUpdate, updateAdminProfile); // PUT /api/auth/admin
 
 module.exports = router;
