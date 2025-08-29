@@ -14,7 +14,6 @@ const {
 
 const router = express.Router();
 
-// Existing routes
 router.post('/add-driver', validateAddDriver, addDriver);
 router.get('/drivers', getDrivers);
 router.get('/driver/:id/stats', getDriverStats);

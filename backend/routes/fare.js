@@ -18,6 +18,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       baseFare,
+      perKmRate,
       waiting5min = 0,
       waiting10min = 0,
       waiting15min = 0,
@@ -35,6 +36,22 @@ router.post('/', async (req, res) => {
       });
     }
 
+    if (!perKmRate || perKmRate <= 0) {
+      console.log('Validation failed: Invalid perKmRate');
+      return res.status(400).json({
+        success: false,
+        message: 'Per kilometer rate is required and must be greater than 0'
+      });
+    }
+
+    if (perKmRate > 1000) {
+      console.log('Validation failed: perKmRate too high');
+      return res.status(400).json({
+        success: false,
+        message: 'Per kilometer rate cannot exceed ₹1000'
+      });
+    }
+
     console.log('Looking for existing system fare...');
     
     // Check if system fare already exists
@@ -48,6 +65,7 @@ router.post('/', async (req, res) => {
       console.log('Updating existing system fare');
       
       fare.baseFare = Number(baseFare);
+      fare.perKmRate = Number(perKmRate);
       fare.waiting5min = Number(waiting5min);
       fare.waiting10min = Number(waiting10min);
       fare.waiting15min = Number(waiting15min);
@@ -70,6 +88,7 @@ router.post('/', async (req, res) => {
       const newFareData = {
         adminId: adminId,
         baseFare: Number(baseFare),
+        perKmRate: Number(perKmRate),
         waiting5min: Number(waiting5min),
         waiting10min: Number(waiting10min),
         waiting15min: Number(waiting15min),
@@ -139,6 +158,88 @@ router.get('/', async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error occurred while fetching fare',
+      error: error.message
+    });
+  }
+});
+
+// @route   POST /api/fares/calculate
+// @desc    Calculate fare based on distance and waiting time
+// @access  Public
+router.post('/calculate', async (req, res) => {
+  console.log('POST /api/fares/calculate called with body:', req.body);
+  
+  try {
+    const { distance, waitingMinutes = 0 } = req.body;
+
+    if (!distance || distance <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Distance is required and must be greater than 0'
+      });
+    }
+
+    // Get current system fare
+    const fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
+    
+    if (!fare) {
+      return res.status(404).json({
+        success: false,
+        message: 'No system fare configuration found'
+      });
+    }
+
+    // Calculate fare components
+    const baseFare = fare.baseFare;
+    const distanceFare = Number(distance) * fare.perKmRate;
+    
+    // Calculate waiting charges
+    let waitingCharge = 0;
+    if (waitingMinutes >= 30) {
+      waitingCharge = fare.waiting30min;
+    } else if (waitingMinutes >= 25) {
+      waitingCharge = fare.waiting25min;
+    } else if (waitingMinutes >= 20) {
+      waitingCharge = fare.waiting20min;
+    } else if (waitingMinutes >= 15) {
+      waitingCharge = fare.waiting15min;
+    } else if (waitingMinutes >= 10) {
+      waitingCharge = fare.waiting10min;
+    } else if (waitingMinutes >= 5) {
+      waitingCharge = fare.waiting5min;
+    }
+
+    const totalFare = baseFare + distanceFare + waitingCharge;
+
+    const calculationDetails = {
+      baseFare: baseFare,
+      distance: Number(distance),
+      perKmRate: fare.perKmRate,
+      distanceFare: Number(distanceFare.toFixed(2)),
+      waitingMinutes: Number(waitingMinutes),
+      waitingCharge: waitingCharge,
+      totalFare: Number(totalFare.toFixed(2)),
+      breakdown: {
+        baseFare: `₹${baseFare}`,
+        distanceFare: `₹${distanceFare.toFixed(2)} (${distance}km × ₹${fare.perKmRate}/km)`,
+        waitingCharge: `₹${waitingCharge} (${waitingMinutes} minutes)`,
+        total: `₹${totalFare.toFixed(2)}`
+      }
+    };
+
+    console.log('Fare calculated successfully:', calculationDetails);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Fare calculated successfully',
+      data: calculationDetails
+    });
+
+  } catch (error) {
+    console.error('Error in POST /api/fares/calculate:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error occurred while calculating fare',
       error: error.message
     });
   }

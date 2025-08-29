@@ -18,43 +18,6 @@ const validateLogin = (req, res, next) => {
   next();
 };
 
-// Validate admin login with password
-const validateAdminLogin = (req, res, next) => {
-  const { phoneNumber, password } = req.body;
-  
-  if (!phoneNumber) {
-    return res.status(400).json({
-      success: false,
-      message: 'Phone number is required'
-    });
-  }
-  
-  if (!password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Password is required for admin login'
-    });
-  }
-  
-  // Validate phone number format
-  if (!/^[0-9]{10}$/.test(phoneNumber)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Phone number must be 10 digits'
-    });
-  }
-  
-  // Basic password validation
-  if (typeof password !== 'string' || password.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: 'Password must be at least 6 characters long'
-    });
-  }
-  
-  next();
-};
-
 const validateAddDriver = (req, res, next) => {
   const { name, phoneNumber } = req.body;
 
@@ -122,7 +85,7 @@ const validateUpdateRide = (req, res, next) => {
   next();
 };
 
-// Validate ride completion data
+// NEW: Validate ride completion data
 const validateRideCompletion = (req, res, next) => {
   const { rideEarnings, tripData } = req.body;
   
@@ -176,6 +139,13 @@ const validateRideCompletion = (req, res, next) => {
       });
     }
     
+    if (tripData.distanceFare && typeof tripData.distanceFare !== 'number') {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Trip distance fare must be a number' 
+      });
+    }
+    
     if (tripData.waitingCharge && typeof tripData.waitingCharge !== 'number') {
       return res.status(400).json({ 
         success: false,
@@ -195,7 +165,7 @@ const validateRideCompletion = (req, res, next) => {
   next();
 };
 
-// Validate user ID parameter
+// NEW: Validate user ID parameter
 const validateUserId = (req, res, next) => {
   const { userId } = req.params;
   
@@ -224,136 +194,132 @@ const validateUserId = (req, res, next) => {
   next();
 };
 
-// Validate phone number parameter for admin password retrieval
-const validatePhoneNumberParam = (req, res, next) => {
-  const { phoneNumber } = req.params;
+// NEW: Validate fare data
+const validateFareData = (req, res, next) => {
+  const { baseFare, perKmRate } = req.body;
   
-  if (!phoneNumber) {
+  // Validate base fare
+  if (!baseFare && baseFare !== 0) {
     return res.status(400).json({
       success: false,
-      message: 'Phone number is required'
+      message: 'Base fare is required'
     });
   }
   
-  if (!/^[0-9]{10}$/.test(phoneNumber)) {
+  if (typeof baseFare !== 'number' || baseFare <= 0) {
     return res.status(400).json({
       success: false,
-      message: 'Phone number must be 10 digits'
+      message: 'Base fare must be a positive number'
     });
+  }
+  
+  if (baseFare > 5000) {
+    return res.status(400).json({
+      success: false,
+      message: 'Base fare seems too high (max: ₹5,000)'
+    });
+  }
+  
+  // Validate per km rate
+  if (!perKmRate && perKmRate !== 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Per kilometer rate is required'
+    });
+  }
+  
+  if (typeof perKmRate !== 'number' || perKmRate <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Per kilometer rate must be a positive number'
+    });
+  }
+  
+  if (perKmRate > 1000) {
+    return res.status(400).json({
+      success: false,
+      message: 'Per kilometer rate seems too high (max: ₹1,000/km)'
+    });
+  }
+  
+  // Validate waiting charges (optional fields)
+  const waitingFields = ['waiting5min', 'waiting10min', 'waiting15min', 'waiting20min', 'waiting25min', 'waiting30min'];
+  
+  for (const field of waitingFields) {
+    const value = req.body[field];
+    if (value !== undefined && value !== null) {
+      if (typeof value !== 'number' || value < 0) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} must be a non-negative number`
+        });
+      }
+      
+      if (value > 1000) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} seems too high (max: ₹1,000)`
+        });
+      }
+    }
   }
   
   next();
 };
 
-// Validate password change request
-const validatePasswordChange = (req, res, next) => {
-  const { currentPassword, newPassword } = req.body;
+// NEW: Validate fare calculation data
+const validateFareCalculation = (req, res, next) => {
+  const { distance, waitingMinutes } = req.body;
   
-  if (!currentPassword) {
+  // Validate distance
+  if (!distance && distance !== 0) {
     return res.status(400).json({
       success: false,
-      message: 'Current password is required'
-    });
-  }
-  
-  if (!newPassword) {
-    return res.status(400).json({
-      success: false,
-      message: 'New password is required'
+      message: 'Distance is required'
     });
   }
   
-  if (typeof newPassword !== 'string' || newPassword.length < 6) {
+  if (typeof distance !== 'number' || distance <= 0) {
     return res.status(400).json({
       success: false,
-      message: 'New password must be at least 6 characters long'
+      message: 'Distance must be a positive number'
     });
   }
   
-  if (currentPassword === newPassword) {
+  if (distance > 1000) {
     return res.status(400).json({
       success: false,
-      message: 'New password must be different from current password'
+      message: 'Distance seems too high (max: 1000km)'
     });
   }
   
-  next();
-};
-
-// NEW: Validate update admin request
-const validateUpdateAdmin = (req, res, next) => {
-  const { name, phoneNumber, password } = req.body;
-  const { phoneNumber: paramPhoneNumber } = req.params;
-
-  // Validate required fields
-  if (!name || !phoneNumber || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Name, phone number, and password are required'
-    });
+  // Validate waiting minutes (optional)
+  if (waitingMinutes !== undefined && waitingMinutes !== null) {
+    if (typeof waitingMinutes !== 'number' || waitingMinutes < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Waiting minutes must be a non-negative number'
+      });
+    }
+    
+    if (waitingMinutes > 480) { // 8 hours max
+      return res.status(400).json({
+        success: false,
+        message: 'Waiting time seems too high (max: 480 minutes)'
+      });
+    }
   }
-
-  // Validate phone number format for new phone number
-  const phoneRegex = /^[0-9]{10}$/;
-  if (!phoneRegex.test(phoneNumber)) {
-    return res.status(400).json({
-      success: false,
-      message: 'New phone number must be 10 digits'
-    });
-  }
-
-  // Validate phone number format for URL parameter
-  if (!phoneRegex.test(paramPhoneNumber)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid phone number in URL'
-    });
-  }
-
-  // Validate name
-  if (typeof name !== 'string' || name.trim().length < 2) {
-    return res.status(400).json({
-      success: false,
-      message: 'Name must be at least 2 characters long'
-    });
-  }
-
-  // Validate name contains only letters and spaces
-  if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
-    return res.status(400).json({
-      success: false,
-      message: 'Name can only contain letters and spaces'
-    });
-  }
-
-  // Validate password
-  if (typeof password !== 'string' || password.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: 'Password must be at least 6 characters long'
-    });
-  }
-
-  // Additional validation: Check if name is not too long
-  if (name.trim().length > 50) {
-    return res.status(400).json({
-      success: false,
-      message: 'Name must not exceed 50 characters'
-    });
-  }
-
+  
   next();
 };
 
 module.exports = {
   validateLogin,
-  validateAdminLogin,           
   validateAddDriver,
   validateUpdateEarnings,
   validateUpdateRide,
   validateRideCompletion,
   validateUserId,
-  validatePhoneNumberParam,     
-  validatePasswordChange,
-  validateUpdateAdmin           // NEW: Added this export
+  validateFareData,         // NEW
+  validateFareCalculation   // NEW
 };

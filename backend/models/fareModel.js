@@ -12,6 +12,12 @@ const fareSchema = new mongoose.Schema({
     required: [true, 'Base fare is required'],
     min: [1, 'Base fare must be at least 1']
   },
+  perKmRate: {
+    type: Number,
+    required: [true, 'Per kilometer rate is required'],
+    min: [0.1, 'Per kilometer rate must be at least 0.1'],
+    max: [1000, 'Per kilometer rate cannot exceed 1000']
+  },
   waiting5min: {
     type: Number,
     default: 0,
