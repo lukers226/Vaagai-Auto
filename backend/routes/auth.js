@@ -4,6 +4,15 @@ const { validateLogin, validateAdminProfileUpdate } = require('../middleware/val
 
 const router = express.Router();
 
+// Test route to verify this router is working
+router.get('/test', (req, res) => {
+  res.json({
+    message: 'Auth router is working!',
+    timestamp: new Date().toISOString(),
+    version: '1.0.1'
+  });
+});
+
 // POST route for proper API calls
 router.post('/login', validateLogin, login);
 
@@ -30,15 +39,14 @@ router.get('/login/:phoneNumber', async (req, res) => {
   }
 });
 
-// IMPORTANT: Routes that exactly match Flutter requests
-// These create: GET /api/auth/admin and PUT /api/auth/admin
+// Admin profile routes - These create /api/auth/admin
 router.get('/admin', (req, res, next) => {
-  console.log('🔵 GET /admin route hit');
+  console.log('🔵 GET /admin route hit - auth router working');
   getAdminProfile(req, res, next);
 });
 
 router.put('/admin', (req, res, next) => {
-  console.log('🔵 PUT /admin route hit');
+  console.log('🔵 PUT /admin route hit - auth router working');
   console.log('Request body:', req.body);
   next();
 }, validateAdminProfileUpdate, updateAdminProfile);

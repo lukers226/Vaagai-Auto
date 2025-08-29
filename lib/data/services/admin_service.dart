@@ -1,17 +1,25 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:vaagaiauto/core/constants/api_constants.dart';
 
 class AdminService {
+  // Cache busting helper
+  static String _addCacheBuster(String url) {
+    final random = Random().nextInt(999999);
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}_cb=$random';
+  }
+
   static Future<Map<String, dynamic>> updateAdminProfile({
     required String name,
     required String phoneNumber,
     required String password,
   }) async {
     try {
-      final url = Uri.parse(
-        '${ApiConstants.baseUrl}${ApiConstants.updateAdminProfileEndpoint}'
-      );
+      final baseUrl = '${ApiConstants.baseUrl}${ApiConstants.updateAdminProfileEndpoint}';
+      final urlWithCacheBuster = _addCacheBuster(baseUrl);
+      final url = Uri.parse(urlWithCacheBuster);
       
       final body = jsonEncode({
         'name': name,
@@ -27,6 +35,9 @@ class AdminService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
         body: body,
       );
@@ -35,7 +46,7 @@ class AdminService {
       print('🟢 Response headers: ${response.headers}');
       print('🟢 Response body: "${response.body}"');
 
-      // Handle empty response body (like from 301 redirects)
+      // Handle empty response body
       if (response.body.isEmpty) {
         return {
           'success': false,
@@ -77,9 +88,9 @@ class AdminService {
 
   static Future<Map<String, dynamic>> getAdminProfile() async {
     try {
-      final url = Uri.parse(
-        '${ApiConstants.baseUrl}${ApiConstants.getAdminProfileEndpoint}'
-      );
+      final baseUrl = '${ApiConstants.baseUrl}${ApiConstants.getAdminProfileEndpoint}';
+      final urlWithCacheBuster = _addCacheBuster(baseUrl);
+      final url = Uri.parse(urlWithCacheBuster);
 
       print('🔵 Getting admin profile from: $url');
 
@@ -88,6 +99,9 @@ class AdminService {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       );
 
@@ -131,6 +145,34 @@ class AdminService {
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
+  // Test method to verify backend deployment
+  static Future<Map<String, dynamic>> testBackend() async {
+    try {
+      final url = Uri.parse('${ApiConstants.baseUrl}/test');
+      print('🔵 Testing backend at: $url');
+
+      final response = await http.get(url);
+      print('🟢 Test response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonDecode(response.body),
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Test failed with status: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Test error: $e',
       };
     }
   }

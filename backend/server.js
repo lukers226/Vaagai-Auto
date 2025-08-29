@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const connectDB = require('./config/database');
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth'); // Make sure this file exists as auth.js
 const adminRoutes = require('./routes/admin');
 const rideRoutes = require('./routes/rides');
 const fareRoutes = require('./routes/fare');
@@ -32,26 +32,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes - NO trailing slashes to match Flutter requests
+// Routes - NO trailing slashes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/drivers', rideRoutes);
 app.use('/api/rides', rideRoutes);
 app.use('/api/fares', fareRoutes);
 
+// Test route to verify deployment
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Backend updated successfully!',
+    timestamp: new Date().toISOString(),
+    version: '1.0.1' // Update this when you deploy
+  });
+});
+
 // Default route
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Auto Meter API is running!',
     timestamp: new Date().toISOString(),
+    version: '1.0.1', // Update this when you deploy
     endpoints: [
       'GET  /api/auth/admin - Get admin profile',
       'PUT  /api/auth/admin - Update admin profile',
       'POST /api/auth/login - Login',
-      '/api/admin', 
-      '/api/drivers',
-      '/api/rides',
-      '/api/fares'
+      'GET  /api/test - Test deployment'
     ]
   });
 });
@@ -67,7 +74,8 @@ app.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       database: dbStatus === 1 ? 'connected' : 'disconnected',
       collections: collections.map(col => col.name),
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.1'
     });
   } catch (error) {
     res.status(500).json({
@@ -101,8 +109,10 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('Backend version: 1.0.1');
   console.log('Available routes:');
   console.log('  GET  /api/auth/admin');
   console.log('  PUT  /api/auth/admin');
   console.log('  POST /api/auth/login');
+  console.log('  GET  /api/test');
 });
