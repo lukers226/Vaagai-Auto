@@ -153,7 +153,7 @@ router.post('/', async (req, res) => {
 
       fare = new Fare(newFareData);
       const savedFare = await fare.save();
-      console.log('System fare created successfully:', savedFare._id);
+      console.log('System fare successfully:', savedFare._id);
 
       return res.status(201).json({
         success: true,
