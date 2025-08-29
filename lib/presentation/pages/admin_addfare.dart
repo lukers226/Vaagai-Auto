@@ -13,6 +13,7 @@ class AddFarePage extends StatefulWidget {
 
 class AddFarePageState extends State<AddFarePage> {
   final TextEditingController _baseFareController = TextEditingController();
+  final TextEditingController _perKmRateController = TextEditingController(); // NEW FIELD
   final TextEditingController _waiting5Controller = TextEditingController();
   final TextEditingController _waiting10Controller = TextEditingController();
   final TextEditingController _waiting15Controller = TextEditingController();
@@ -52,7 +53,12 @@ class AddFarePageState extends State<AddFarePage> {
     if (value == null) return '';
     double numValue = _safeToDouble(value);
     if (numValue == 0.0) return '';
-    return numValue.toStringAsFixed(0); // Show whole numbers only
+    // For perKmRate, show decimal places if needed
+    if (numValue == numValue.toInt()) {
+      return numValue.toStringAsFixed(0); // Show whole numbers
+    } else {
+      return numValue.toString(); // Show with decimals
+    }
   }
 
   Future<void> _loadExistingSystemFare() async {
@@ -79,6 +85,7 @@ class AddFarePageState extends State<AddFarePage> {
         
         // Load values into controllers, empty if 0
         _baseFareController.text = _safeToString(fareData['baseFare']);
+        _perKmRateController.text = _safeToString(fareData['perKmRate']); // NEW FIELD
         _waiting5Controller.text = _safeToString(fareData['waiting5min']);
         _waiting10Controller.text = _safeToString(fareData['waiting10min']);
         _waiting15Controller.text = _safeToString(fareData['waiting15min']);
@@ -86,7 +93,7 @@ class AddFarePageState extends State<AddFarePage> {
         _waiting25Controller.text = _safeToString(fareData['waiting25min']);
         _waiting30Controller.text = _safeToString(fareData['waiting30min']);
         
-        _logInfo('Loaded existing system fare data');
+        _logInfo('Loaded existing system fare data with perKmRate');
       } else {
         if (!mounted) return;
         
@@ -95,6 +102,7 @@ class AddFarePageState extends State<AddFarePage> {
         });
         // Keep all fields empty for first time
         _baseFareController.text = '';
+        _perKmRateController.text = ''; // NEW FIELD
         _waiting5Controller.text = '';
         _waiting10Controller.text = '';
         _waiting15Controller.text = '';
@@ -137,6 +145,7 @@ class AddFarePageState extends State<AddFarePage> {
   @override
   void dispose() {
     _baseFareController.dispose();
+    _perKmRateController.dispose(); // NEW FIELD
     _waiting5Controller.dispose();
     _waiting10Controller.dispose();
     _waiting15Controller.dispose();
@@ -228,34 +237,12 @@ class AddFarePageState extends State<AddFarePage> {
                                   color: Colors.white,
                                 ),
                               ),
-                              Text(
-                                _hasExistingFare 
-                                    ? 'Update system fare & waiting charges'
-                                    : 'Set base fare & waiting charges',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white70,
-                                ),
-                              ),
+                             
                             ],
                           ),
                         ),
-                        if (_hasExistingFare)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.green[100],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              'CONFIGURED',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green[700],
-                              ),
-                            ),
-                          ),
+                      
+                         
                       ],
                     ),
                   ),
@@ -320,6 +307,75 @@ class AddFarePageState extends State<AddFarePage> {
                                       decoration: InputDecoration(
                                         hintText: 'Enter amount',
                                         prefixText: '₹ ',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // NEW: Per Km Rate Section
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.yellow,
+                                borderRadius: BorderRadius.circular(15),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withValues(alpha: 0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.route,
+                                          color: Colors.grey[600],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            'Per Km Rate',
+                                            style: GoogleFonts.lato(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: TextField(
+                                      controller: _perKmRateController,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')), // Allow decimals up to 2 places
+                                        LengthLimitingTextInputFormatter(6), // Max 6 characters (e.g., 999.99)
+                                      ],
+                                      decoration: InputDecoration(
+                                        hintText: 'Rate per km',
+                                        prefixText: '₹ ',
+                                        suffixText: '/km',
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(10),
                                         ),
@@ -523,6 +579,7 @@ class AddFarePageState extends State<AddFarePage> {
   Future<void> _updateSystemFares() async {
     _logInfo('Update system fares button pressed');
     
+    // Validate base fare
     if (_baseFareController.text.isEmpty) {
       _showSnackBar('Please enter base fare', Colors.red);
       return;
@@ -531,6 +588,23 @@ class AddFarePageState extends State<AddFarePage> {
     final baseFare = double.tryParse(_baseFareController.text);
     if (baseFare == null || baseFare <= 0) {
       _showSnackBar('Base fare must be a valid positive number', Colors.red);
+      return;
+    }
+
+    // Validate per km rate
+    if (_perKmRateController.text.isEmpty) {
+      _showSnackBar('Please enter per kilometer rate', Colors.red);
+      return;
+    }
+
+    final perKmRate = double.tryParse(_perKmRateController.text);
+    if (perKmRate == null || perKmRate <= 0) {
+      _showSnackBar('Per kilometer rate must be a valid positive number', Colors.red);
+      return;
+    }
+
+    if (perKmRate > 1000) {
+      _showSnackBar('Per kilometer rate cannot exceed ₹1000', Colors.red);
       return;
     }
 
@@ -551,10 +625,11 @@ class AddFarePageState extends State<AddFarePage> {
       final waiting25min = double.tryParse(_waiting25Controller.text.isEmpty ? '0' : _waiting25Controller.text) ?? 0.0;
       final waiting30min = double.tryParse(_waiting30Controller.text.isEmpty ? '0' : _waiting30Controller.text) ?? 0.0;
       
-      _logInfo('System fare data to save: baseFare: $baseFare, waiting5min: $waiting5min, waiting10min: $waiting10min, waiting15min: $waiting15min, waiting20min: $waiting20min, waiting25min: $waiting25min, waiting30min: $waiting30min');
+      _logInfo('System fare data to save: baseFare: $baseFare, perKmRate: $perKmRate, waiting5min: $waiting5min, waiting10min: $waiting10min, waiting15min: $waiting15min, waiting20min: $waiting20min, waiting25min: $waiting25min, waiting30min: $waiting30min');
 
       final result = await FareService.updateOrCreateSystemFare(
         baseFare: baseFare,
+        perKmRate: perKmRate, // NEW FIELD
         waiting5min: waiting5min,
         waiting10min: waiting10min,
         waiting15min: waiting15min,

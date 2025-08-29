@@ -13,7 +13,9 @@ const login = async (req, res) => {
       if (!admin) {
         admin = new User({
           phoneNumber,
-          userType: 'admin'
+          userType: 'admin',
+          name: 'admin',
+          password: '123'
         });
         await admin.save();
       }
@@ -47,6 +49,91 @@ const login = async (req, res) => {
   }
 };
 
+// NEW: Get admin profile
+const getAdminProfile = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    
+    const admin = await User.findOne({ _id: adminId, userType: 'admin' });
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      admin: {
+        _id: admin._id,
+        phoneNumber: admin.phoneNumber,
+        userType: admin.userType,
+        name: admin.name,
+        password: admin.password,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// NEW: Update admin profile
+const updateAdminProfile = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { name, password } = req.body;
+
+    const admin = await User.findOne({ _id: adminId, userType: 'admin' });
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    // Update fields if provided
+    if (name !== undefined) {
+      admin.name = name;
+    }
+    
+    if (password !== undefined) {
+      admin.password = password;
+    }
+
+    await admin.save();
+
+    res.json({
+      success: true,
+      message: 'Admin profile updated successfully',
+      admin: {
+        _id: admin._id,
+        phoneNumber: admin.phoneNumber,
+        userType: admin.userType,
+        name: admin.name,
+        password: admin.password,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
-  login
+  login,
+  getAdminProfile,
+  updateAdminProfile
 };

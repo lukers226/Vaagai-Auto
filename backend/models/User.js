@@ -15,7 +15,14 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: function() {
-      return this.userType === 'driver';
+      return this.userType === 'driver' || this.userType === 'admin';
+    }
+  },
+  // NEW: Admin password field
+  password: {
+    type: String,
+    required: function() {
+      return this.userType === 'admin';
     }
   }
 }, {

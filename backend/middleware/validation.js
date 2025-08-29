@@ -167,16 +167,17 @@ const validateRideCompletion = (req, res, next) => {
 
 // NEW: Validate user ID parameter
 const validateUserId = (req, res, next) => {
-  const { userId } = req.params;
+  const { userId, adminId } = req.params;
+  const idToValidate = userId || adminId;
   
-  if (!userId) {
+  if (!idToValidate) {
     return res.status(400).json({
       success: false,
       message: 'User ID is required'
     });
   }
   
-  if (userId === 'undefined' || userId === 'null') {
+  if (idToValidate === 'undefined' || idToValidate === 'null') {
     return res.status(400).json({
       success: false,
       message: 'Invalid user ID provided'
@@ -184,7 +185,7 @@ const validateUserId = (req, res, next) => {
   }
   
   // Basic MongoDB ObjectId format validation (24 character hex string)
-  if (!/^[a-fA-F0-9]{24}$/.test(userId)) {
+  if (!/^[a-fA-F0-9]{24}$/.test(idToValidate)) {
     return res.status(400).json({
       success: false,
       message: 'Invalid user ID format'
@@ -313,6 +314,69 @@ const validateFareCalculation = (req, res, next) => {
   next();
 };
 
+// NEW: Validate admin profile update
+const validateAdminProfileUpdate = (req, res, next) => {
+  const { name, password } = req.body;
+
+  // At least one field should be provided for update
+  if (!name && !password && name !== '' && password !== '') {
+    return res.status(400).json({
+      success: false,
+      message: 'At least one field (name or password) is required for update'
+    });
+  }
+
+  // Validate name if provided
+  if (name !== undefined) {
+    if (typeof name !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Name must be a string'
+      });
+    }
+    
+    if (name.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name must be at least 2 characters'
+      });
+    }
+    
+    if (name.trim().length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name must not exceed 50 characters'
+      });
+    }
+  }
+
+  // Validate password if provided
+  if (password !== undefined) {
+    if (typeof password !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be a string'
+      });
+    }
+    
+    if (password.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 3 characters'
+      });
+    }
+    
+    if (password.length > 20) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must not exceed 20 characters'
+      });
+    }
+  }
+
+  next();
+};
+
 module.exports = {
   validateLogin,
   validateAddDriver,
@@ -320,6 +384,7 @@ module.exports = {
   validateUpdateRide,
   validateRideCompletion,
   validateUserId,
-  validateFareData,         // NEW
-  validateFareCalculation   // NEW
+  validateFareData,
+  validateFareCalculation,
+  validateAdminProfileUpdate  // NEW
 };
