@@ -5,10 +5,10 @@ const { validateLogin, validateAdminProfileUpdate } = require('../middleware/val
 const router = express.Router();
 
 // POST route for proper API calls
-router.post('/login', validateLogin, login);
+router.post('login', validateLogin, login); // Remove leading slash
 
 // GET route for browser testing - TEMPORARY
-router.get('/login/:phoneNumber', async (req, res) => {
+router.get('login/:phoneNumber', async (req, res) => { // Remove leading slash
   try {
     const { phoneNumber } = req.params;
     
@@ -30,9 +30,8 @@ router.get('/login/:phoneNumber', async (req, res) => {
   }
 });
 
-// SOLUTION: Handle both with and without trailing slash
-// Admin profile routes - handle both /admin and /admin/
-router.get('/admin/?', getAdminProfile); // The /? makes trailing slash optional
-router.put('/admin/?', validateAdminProfileUpdate, updateAdminProfile);
+// Admin profile routes - Remove leading slashes
+router.get('admin', getAdminProfile); // This becomes /api/auth/admin
+router.put('admin', validateAdminProfileUpdate, updateAdminProfile); // This becomes /api/auth/admin
 
 module.exports = router;

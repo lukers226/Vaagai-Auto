@@ -13,18 +13,6 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
-// IMPORTANT: Add trailing slash middleware BEFORE other routes
-app.use((req, res, next) => {
-  if (req.path.slice(-1) === '/' && req.path.length > 1) {
-    // Remove trailing slash and redirect
-    const query = req.url.slice(req.path.length);
-    const safepath = req.path.slice(0, -1).replace(/\/+/g, '/');
-    res.redirect(301, safepath + query);
-  } else {
-    next();
-  }
-});
-
 // Middleware
 app.use(cors({
   origin: ['http://localhost:3000', 'https://vaagai-auto.onrender.com'],
@@ -35,21 +23,33 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// FIXED: Better trailing slash handling - Add slash if missing (not remove)
+app.use((req, res, next) => {
+  // Only add trailing slash for API routes and if it doesn't already have one
+  if (req.path !== '/' && !req.path.endsWith('/') && req.path.startsWith('/api/')) {
+    const query = req.url.slice(req.path.length);
+    const redirectPath = req.path + '/' + query;
+    console.log(`🔄 Redirecting ${req.path} to ${redirectPath}`);
+    return res.redirect(301, redirectPath);
+  }
+  next();
+});
+
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
   if (req.body && Object.keys(req.body).length > 0) {
     console.log('Request body:', JSON.stringify(req.body, null, 2));
   }
   next();
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/drivers', rideRoutes);
-app.use('/api/rides', rideRoutes);
-app.use('/api/fares', fareRoutes);
+// Routes - These will now work with trailing slashes
+app.use('/api/auth/', authRoutes); // Note the trailing slash here
+app.use('/api/admin/', adminRoutes);
+app.use('/api/drivers/', rideRoutes);
+app.use('/api/rides/', rideRoutes);
+app.use('/api/fares/', fareRoutes);
 
 // Default route
 app.get('/', (req, res) => {
