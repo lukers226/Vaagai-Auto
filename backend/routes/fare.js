@@ -9,6 +9,56 @@ router.use((req, res, next) => {
   next();
 });
 
+// @route   POST /api/fares/add-perkm-field
+// @desc    One-time update to add perKmRate field to existing system fare
+// @access  Public (remove after use)
+router.post('/add-perkm-field', async (req, res) => {
+  try {
+    console.log('🚀 Adding perKmRate field to existing system fare...');
+    
+    // Find the existing system fare
+    const existingFare = await Fare.findOne({ isSystemDefault: true, isActive: true });
+    
+    if (!existingFare) {
+      return res.status(404).json({
+        success: false,
+        message: 'No existing system fare found'
+      });
+    }
+
+    // Check if perKmRate already exists
+    if (existingFare.perKmRate !== undefined) {
+      return res.status(200).json({
+        success: true,
+        message: 'perKmRate field already exists',
+        data: existingFare
+      });
+    }
+
+    // Add the perKmRate field with a default value
+    const defaultPerKmRate = 10; // Set your desired default rate
+    existingFare.perKmRate = defaultPerKmRate;
+    
+    const updatedFare = await existingFare.save();
+    
+    console.log('✅ Successfully added perKmRate field to existing document');
+
+    return res.status(200).json({
+      success: true,
+      message: 'perKmRate field added successfully to existing system fare',
+      data: updatedFare
+    });
+
+  } catch (error) {
+    console.error('❌ Error adding perKmRate field:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error adding perKmRate field',
+      error: error.message
+    });
+  }
+});
+
 // @route   POST /api/fares
 // @desc    Create or update system-wide fare (Admin only)
 // @access  Public
@@ -132,13 +182,13 @@ router.post('/', async (req, res) => {
 });
 
 // @route   GET /api/fares
-// @desc    Get current system fare
+// @desc    Get current system fare with automatic field addition
 // @access  Public
 router.get('/', async (req, res) => {
   console.log('GET /api/fares called');
   
   try {
-    const fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
+    let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     console.log('System fare found:', fare ? 'Yes' : 'No');
 
     if (!fare) {
@@ -148,9 +198,21 @@ router.get('/', async (req, res) => {
       });
     }
 
+    // Auto-add perKmRate field if missing (backward compatibility)
+    let wasUpdated = false;
+    if (fare.perKmRate === undefined || fare.perKmRate === null) {
+      console.log('⚠️ perKmRate field missing, adding default value...');
+      fare.perKmRate = 10; // Default value
+      await fare.save();
+      wasUpdated = true;
+      console.log('✅ Added perKmRate field with default value');
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'System fare retrieved successfully',
+      message: wasUpdated ? 
+        'System fare retrieved and updated with missing field' : 
+        'System fare retrieved successfully',
       data: fare
     });
   } catch (error) {
@@ -180,13 +242,20 @@ router.post('/calculate', async (req, res) => {
     }
 
     // Get current system fare
-    const fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
+    let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
     if (!fare) {
       return res.status(404).json({
         success: false,
         message: 'No system fare configuration found'
       });
+    }
+
+    // Ensure perKmRate exists (backward compatibility)
+    if (!fare.perKmRate) {
+      fare.perKmRate = 10; // Default value
+      await fare.save();
+      console.log('✅ Added missing perKmRate field during calculation');
     }
 
     // Calculate fare components
@@ -258,13 +327,18 @@ router.get('/debug/test', async (req, res) => {
     console.log('Fares collection exists:', fareCollection ? 'Yes' : 'No');
     
     const count = await Fare.countDocuments();
+    const fareDoc = await Fare.findOne({ isSystemDefault: true, isActive: true });
+    
     console.log('Total fare documents:', count);
+    console.log('System fare document:', fareDoc);
     
     res.json({
       success: true,
       dbStatus: dbStatus === 1 ? 'connected' : 'disconnected',
       collectionExists: !!fareCollection,
       documentCount: count,
+      systemFare: fareDoc,
+      hasPerKmRate: fareDoc ? (fareDoc.perKmRate !== undefined) : false,
       collections: collections.map(col => col.name)
     });
   } catch (error) {
