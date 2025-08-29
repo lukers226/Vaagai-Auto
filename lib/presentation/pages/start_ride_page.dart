@@ -89,54 +89,55 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
   }
 
   // ENHANCED: Load fare data with comprehensive error handling
-  Future<void> _loadFareDataFromDatabase() async {
-    try {
-      debugPrint('🔄 Starting fare data load from database...');
+Future<void> _loadFareDataFromDatabase() async {
+  try {
+    debugPrint('🔄 Starting fare data load from database...');
+    
+    // Make API call to get fare data
+    Map<String, dynamic> fareData = await _apiService.getFareData();
+    debugPrint('✅ Raw fare data received: $fareData');
+    
+    if (fareData.isNotEmpty) {
+      // Set the fare data in the controller
+      _rideController.setFareDataFromDB(fareData);
       
-      // Show loading message to user (only if needed)
       if (mounted && !_isDisposed) {
-        _showSnackBar('📊 Loading fare rates...', true);
-      }
-      
-      // Make API call to get fare data
-      Map<String, dynamic> fareData = await _apiService.getFareData();
-      debugPrint('✅ Raw fare data received: $fareData');
-      
-      if (fareData.isNotEmpty) {
-        // Set the fare data in the controller
-        _rideController.setFareDataFromDB(fareData);
+        setState(() {
+          _fareDataLoaded = true;
+        });
         
-        if (mounted && !_isDisposed) {
-          setState(() {
-            _fareDataLoaded = true;
-          });
-          
-          debugPrint('💯 Database fare data loaded successfully:');
-          debugPrint('   📊 Base Fare: ₹${_rideController.baseFareFromDB}');
-          debugPrint('   ⏱️ Waiting Charges: ${_rideController.waitingChargesFromDB}');
-          
-          _showSnackBar(
-            '✅ Ready to start! Base fare: ₹${_rideController.baseFareFromDB.toStringAsFixed(0)}', 
-            true
-          );
-        }
-      } else {
-        throw Exception('Empty fare data received from server');
+        debugPrint('💯 Database fare data loaded successfully:');
+        debugPrint('   📊 Base Fare: ₹${_rideController.baseFareFromDB}');
+        debugPrint('   ⏱️ Waiting Charges: ${_rideController.waitingChargesFromDB}');
+        
+        // Show success message after a short delay to avoid context issues
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (mounted && !_isDisposed) {
+            _showSnackBar(
+              '✅ Ready to start! Base fare: ₹${_rideController.baseFareFromDB.toStringAsFixed(0)}', 
+              true
+            );
+          }
+        });
       }
-    } on TimeoutException {
-      debugPrint('⏱️ Timeout while loading fare data');
-      _handleFareDataError('Connection timeout. Using default rates.');
-    } on SocketException {
-      debugPrint('🌐 Network error while loading fare data');
-      _handleFareDataError('Network error. Using default rates.');
-    } on FormatException {
-      debugPrint('🔧 Format error while parsing fare data');
-      _handleFareDataError('Data format error. Using default rates.');
-    } catch (e) {
-      debugPrint('❌ Unexpected error loading fare data: $e');
-      _handleFareDataError('Server error. Using default rates.');
+    } else {
+      throw Exception('Empty fare data received from server');
     }
+  } on TimeoutException {
+    debugPrint('⏱️ Timeout while loading fare data');
+    _handleFareDataError('Connection timeout. Using default rates.');
+  } on SocketException {
+    debugPrint('🌐 Network error while loading fare data');
+    _handleFareDataError('Network error. Using default rates.');
+  } on FormatException {
+    debugPrint('🔧 Format error while parsing fare data');
+    _handleFareDataError('Data format error. Using default rates.');
+  } catch (e) {
+    debugPrint('❌ Unexpected error loading fare data: $e');
+    _handleFareDataError('Server error. Using default rates.');
   }
+}
+
 
   // ENHANCED: Handle fare data loading errors
   void _handleFareDataError(String message) {
@@ -290,10 +291,11 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     }
   }
 
+  // UPDATED: End ride now pauses the ride instead of stopping completely
   void _endRide() {
     if (!mounted || _isDisposed) return;
     try {
-      _rideController.stopRide();
+      _rideController.stopRide(); // This now pauses the ride
       _showTripSummary();
     } catch (e) {
       debugPrint('❌ Error ending ride: $e');
@@ -421,6 +423,7 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     }
   }
 
+  // UPDATED: Enhanced trip summary with proper continue/complete functionality
   void _showTripSummary() {
     if (!mounted || _isDisposed) return;
     _widgets.showTripSummary(
@@ -436,10 +439,17 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       onContinue: () {
         if (mounted && !_isDisposed) {
           Navigator.of(context).pop();
-          if (_rideController.isMeterOn) _rideController.resumeRide();
+          _rideController.resumeRide(); // NEW: Resume the ride
+          _showSnackBar('Ride resumed successfully', true);
         }
       },
-      onComplete: _handleCompleteRide,
+      onComplete: () {
+        if (mounted && !_isDisposed) {
+          Navigator.of(context).pop();
+          _rideController.completeRide(); // NEW: Complete the ride permanently
+          _handleCompleteRide();
+        }
+      },
       onShareCustomer: _showCustomerPhoneInput,
     );
   }
@@ -487,7 +497,6 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
 
   Future<void> _handleCompleteRide() async {
     if (!mounted || _isDisposed) return;
-    Navigator.of(context).pop();
     
     try {
       String userId = widget.user.id ?? '';
@@ -681,7 +690,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
         _showSnackBar('Bill shared successfully!', true);
       }
       
-      // Clean up file after 2 minutes
+
       Timer(Duration(minutes: 2), () async {
         try { 
           if (await file.exists()) await file.delete(); 
@@ -913,7 +922,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
                           hasLocationPermission: _rideController.hasLocationPermission,
                           currentPosition: _rideController.currentPosition,
                         ),
-                        // REMOVED: Fare status card section
                         SizedBox(height: 20),
                         _rideController.isMeterOn
                             ? _buildActiveRideUI()
@@ -974,13 +982,12 @@ Thank you for choosing Vaagai Auto! 🙏''';
       pulseAnimation: _pulseAnimation,
       onEndRide: _endRide,
       onWaitingTimeChanged: (int newValue) {
-        // Kept for compatibility but not used
+   
       },
     );
   }
 }
 
-// App lifecycle observer to prevent call interruptions
 class _AppLifecycleObserver extends WidgetsBindingObserver {
   final RideController rideController;
 

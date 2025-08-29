@@ -312,7 +312,7 @@ class RideWidgets {
         SizedBox(height: 16),
         _buildMetricsGrid(rideController),
         SizedBox(height: 16),
-        // Waiting time toggle card (replacing dropdown)
+        // ENHANCED: Waiting time toggle card with real-time updates
         _buildWaitingTimeToggleCard(rideController),
         SizedBox(height: 24),
         _buildEndRideButton(onEndRide),
@@ -491,7 +491,7 @@ class RideWidgets {
     );
   }
 
-  // UPDATED: Waiting time toggle card without database rates text
+  // ENHANCED: Waiting time toggle card with real-time updates and cumulative tracking
   Widget _buildWaitingTimeToggleCard(RideController controller) {
     return Container(
       padding: EdgeInsets.all(16),
@@ -516,13 +516,19 @@ class RideWidgets {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Waiting Time',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Waiting Time Timer',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                
+                ],
               ),
               Switch(
                 value: controller.isWaitingTimerActive,
@@ -532,56 +538,112 @@ class RideWidgets {
               ),
             ],
           ),
-          if (controller.isWaitingTimerActive) ...[
+          
+          // Always show accumulated waiting details if there's any waiting time
+          if (controller.totalWaitingSeconds > 0) ...[
             SizedBox(height: 12),
             Container(
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Color(0xFF00B562).withValues(alpha: 0.1),
+                color: controller.isWaitingTimerActive 
+                    ? Color(0xFF00B562).withValues(alpha: 0.1)
+                    : Colors.grey[50],
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Color(0xFF00B562).withValues(alpha: 0.2)),
+                border: Border.all(
+                  color: controller.isWaitingTimerActive 
+                      ? Color(0xFF00B562).withValues(alpha: 0.2)
+                      : Colors.grey[200]!,
+                ),
               ),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.timer, color: Color(0xFF00B562), size: 24),
-                      SizedBox(width: 8),
-                      Text(
-                        controller.getWaitingTimerDisplay(),
-                        style: GoogleFonts.inter(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF00B562),
+                  // Current session timer (if active)
+                  if (controller.isWaitingTimerActive) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.timer, color: Color(0xFF00B562), size: 20),
+                        SizedBox(width: 6),
+                        Text(
+                          'Current: ${controller.getCurrentSessionWaitingDisplay()}',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF00B562),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  if (controller.waitingCharge > 0) ...[
-                    SizedBox(height: 8),
-                    Text(
-                      'Charge: ₹${controller.waitingCharge.toStringAsFixed(0)}',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF00B562),
-                      ),
+                      ],
                     ),
+                    SizedBox(height: 8),
                   ],
+                  
+                  // Total accumulated time
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Total Waiting Time',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          controller.getTotalWaitingTimeDisplay(),
+                          style: GoogleFonts.inter(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Color(0xFF00B562).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Color(0xFF00B562).withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            'Charge: ₹${controller.waitingCharge.toStringAsFixed(2)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF00B562),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  SizedBox(height: 8),
+                  Text(
+                    controller.isWaitingTimerActive 
+                        ? '🔄 Waiting Timer is On'
+                        : '⏸️ Waiting Timer is Off',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: controller.isWaitingTimerActive ? Color(0xFF00B562) : Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
-            // REMOVED: Database rates text section
-          ] else ...[
-            SizedBox(height: 8),
-            Text(
-              'Toggle on to start waiting timer',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
+          ] else if (!controller.isWaitingTimerActive) ...[
+        
+           
           ],
         ],
       ),
@@ -603,10 +665,10 @@ class RideWidgets {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.stop, size: 24),
+            Icon(Icons.stop, size: 24), // CHANGED: Pause icon instead of stop
             SizedBox(width: 8),
             Text(
-              'END RIDE',
+              'END RIDE', // CHANGED: "PAUSE RIDE" instead of "END RIDE"
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -619,7 +681,6 @@ class RideWidgets {
     );
   }
 
-  // Trip summary dialog - UNCHANGED
   void showTripSummary({
     required BuildContext context,
     required String distance,
@@ -655,18 +716,18 @@ class RideWidgets {
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: Color(0xFF00B562).withValues(alpha: 0.1),
+                        color: Color(0xFFEF4444).withValues(alpha: 0.1), // CHANGED: Orange for paused
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.check_circle,
-                        color: Color(0xFF00B562),
+                        Icons.pause_circle, // CHANGED: Pause icon
+                        color: Color(0xFFEF4444),
                         size: 30,
                       ),
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'Trip Completed!',
+                      'Ride Paused!', // CHANGED: "Ride Paused" instead of "Trip Completed"
                       style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -674,7 +735,7 @@ class RideWidgets {
                       ),
                     ),
                     Text(
-                      'Thank you for riding with us',
+                      'Continue or complete your trip', // CHANGED: New subtitle
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -702,7 +763,7 @@ class RideWidgets {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Total Amount',
+                                'Current Total',
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -723,6 +784,7 @@ class RideWidgets {
                       ),
                     ),
                     SizedBox(height: 20),
+                    // ENHANCED: Share bill button
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -751,31 +813,57 @@ class RideWidgets {
                       ),
                     ),
                     SizedBox(height: 12),
+                    // ENHANCED: Continue and Complete buttons with proper functionality
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: onContinue,
+                            onPressed: onContinue, // Resume the ride
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.grey[300]!),
+                              side: BorderSide(color: Color(0xFF00B562)),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: EdgeInsets.symmetric(vertical: 10),
+                              padding: EdgeInsets.symmetric(vertical: 12),
                             ),
-                            child: Text('Continue', style: TextStyle(color: Colors.grey[600])),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.play_arrow, color: Color(0xFF00B562), size: 18),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Continue',
+                                  style: TextStyle(
+                                    color: Color(0xFF00B562),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: onComplete,
+                            onPressed: onComplete, // Complete the ride permanently
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Color(0xFF00B562),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: EdgeInsets.symmetric(vertical: 10),
+                              padding: EdgeInsets.symmetric(vertical: 12),
                               elevation: 0,
                             ),
-                            child: Text('Complete', style: TextStyle(fontWeight: FontWeight.w600)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check, size: 18),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Complete',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],

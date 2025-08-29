@@ -18,6 +18,43 @@ const validateLogin = (req, res, next) => {
   next();
 };
 
+// NEW: Validate admin login with password
+const validateAdminLogin = (req, res, next) => {
+  const { phoneNumber, password } = req.body;
+  
+  if (!phoneNumber) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number is required'
+    });
+  }
+  
+  if (!password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password is required for admin login'
+    });
+  }
+  
+  // Validate phone number format
+  if (!/^[0-9]{10}$/.test(phoneNumber)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number must be 10 digits'
+    });
+  }
+  
+  // Basic password validation
+  if (typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 6 characters long'
+    });
+  }
+  
+  next();
+};
+
 const validateAddDriver = (req, res, next) => {
   const { name, phoneNumber } = req.body;
 
@@ -187,11 +224,70 @@ const validateUserId = (req, res, next) => {
   next();
 };
 
+// NEW: Validate phone number parameter for admin password retrieval
+const validatePhoneNumberParam = (req, res, next) => {
+  const { phoneNumber } = req.params;
+  
+  if (!phoneNumber) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number is required'
+    });
+  }
+  
+  if (!/^[0-9]{10}$/.test(phoneNumber)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number must be 10 digits'
+    });
+  }
+  
+  next();
+};
+
+// NEW: Validate password change request
+const validatePasswordChange = (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+  
+  if (!currentPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'Current password is required'
+    });
+  }
+  
+  if (!newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password is required'
+    });
+  }
+  
+  if (typeof newPassword !== 'string' || newPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password must be at least 6 characters long'
+    });
+  }
+  
+  if (currentPassword === newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password must be different from current password'
+    });
+  }
+  
+  next();
+};
+
 module.exports = {
   validateLogin,
+  validateAdminLogin,           // NEW
   validateAddDriver,
   validateUpdateEarnings,
   validateUpdateRide,
-  validateRideCompletion,  // NEW
-  validateUserId           // NEW
+  validateRideCompletion,
+  validateUserId,
+  validatePhoneNumberParam,     // NEW
+  validatePasswordChange        // NEW
 };

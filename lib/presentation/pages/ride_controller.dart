@@ -21,10 +21,10 @@ class RideController {
     30: 60.0,
   };
   
-  // Waiting time toggle and timer
+  // ENHANCED: Waiting time with cumulative tracking
   bool isWaitingTimerActive = false;
-  int waitingMinutesElapsed = 0;
-  int waitingSecondsElapsed = 0;
+  int totalWaitingSeconds = 0; // NEW: Total accumulated waiting time
+  int currentSessionWaitingSeconds = 0; // NEW: Current session time
   Timer? waitingTimer;
   
   // Trip timing
@@ -36,8 +36,9 @@ class RideController {
   Timer? locationTimer;
   Timer? gpsMonitorTimer;
   
-  // State
+  // State management
   bool isMeterOn = false;
+  bool isRidePaused = false;
   int waitingSeconds = 0;
   
   // GPS tracking variables
@@ -84,6 +85,11 @@ class RideController {
     debugPrint('✅ Fare data successfully set:');
     debugPrint('📊 Base Fare: ₹${baseFareFromDB}');
     debugPrint('⏱️ Waiting Charges: $waitingChargesFromDB');
+    
+    // Recalculate waiting charge if there's accumulated time
+    if (totalWaitingSeconds > 0) {
+      _calculateWaitingCharge();
+    }
     
     // Force UI update to show new fare immediately
     onStatusChange?.call();
@@ -286,55 +292,100 @@ class RideController {
     return true;
   }
 
-  // Toggle waiting timer with proper second-by-second updates
+  // NEW: Enhanced waiting timer with real-time fare updates and cumulative tracking
   void toggleWaitingTimer() {
     if (isWaitingTimerActive) {
       // Stop waiting timer
       isWaitingTimerActive = false;
       waitingTimer?.cancel();
-      debugPrint('Waiting timer stopped at ${waitingMinutesElapsed}:${waitingSecondsElapsed.toString().padLeft(2, '0')}');
-      onShowSnackBar?.call('Waiting timer stopped', true);
-    } else {
-      // Start waiting timer
-      isWaitingTimerActive = true;
-      waitingMinutesElapsed = 0;
-      waitingSecondsElapsed = 0;
-      waitingCharge = 0.0;
       
-      // Timer runs every second
+      debugPrint('⏸️ Waiting timer stopped. Session time: ${currentSessionWaitingSeconds}s, Total: ${totalWaitingSeconds}s');
+      onShowSnackBar?.call('Waiting timer stopped - Total: ${getTotalWaitingTimeDisplay()}', true);
+    } else {
+      // Start waiting timer (adds to existing time)
+      isWaitingTimerActive = true;
+      currentSessionWaitingSeconds = 0; // Reset current session
+      
+      // Timer runs every second with real-time fare updates
       waitingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-        waitingSecondsElapsed++;
+        currentSessionWaitingSeconds++;
+        totalWaitingSeconds++;
         
-        // Check if a minute has passed
-        if (waitingSecondsElapsed >= 60) {
-          waitingSecondsElapsed = 0;
-          waitingMinutesElapsed++;
-          _updateWaitingChargeFromTimer();
-          debugPrint('Waiting timer: ${waitingMinutesElapsed} min - Charge: ₹${waitingCharge.toStringAsFixed(0)}');
-          onShowSnackBar?.call('Waiting: ${waitingMinutesElapsed} min - ₹${waitingCharge.toStringAsFixed(0)}', true);
+        // Calculate and update waiting charge in real-time
+        _calculateWaitingCharge();
+        
+        // Show progress every 30 seconds
+        if (totalWaitingSeconds % 30 == 0) {
+          debugPrint('⏰ Waiting timer: ${getTotalWaitingTimeDisplay()} - Charge: ₹${waitingCharge.toStringAsFixed(2)}');
+          onShowSnackBar?.call('Waiting: ${getTotalWaitingTimeDisplay()} - ₹${waitingCharge.toStringAsFixed(2)}', true);
         }
         
         onStatusChange?.call(); // Update UI every second
       });
       
-      debugPrint('Waiting timer started');
+      debugPrint('▶️ Waiting timer started. Previous total: ${totalWaitingSeconds - currentSessionWaitingSeconds}s');
       onShowSnackBar?.call('Waiting timer started', true);
     }
     onStatusChange?.call();
   }
 
-  // Update waiting charge based on timer
-  void _updateWaitingChargeFromTimer() {
+  // FIXED: Completely rewritten progressive waiting charge calculation
+  void _calculateWaitingCharge() {
+    if (totalWaitingSeconds <= 0) {
+      waitingCharge = 0.0;
+      return;
+    }
+    
+    // Convert seconds to minutes for calculation
+    double totalMinutes = totalWaitingSeconds / 60.0;
     double newCharge = 0.0;
     
-    for (int minutes in waitingChargesFromDB.keys.toList()..sort()) {
-      if (waitingMinutesElapsed >= minutes) {
-        newCharge = waitingChargesFromDB[minutes] ?? 0.0;
+    // Get sorted tier minutes for progression
+    List<int> sortedTiers = waitingChargesFromDB.keys.toList()..sort();
+    
+    // Find which tier bracket we're in and calculate progressive charge
+    for (int i = 0; i < sortedTiers.length; i++) {
+      int currentTier = sortedTiers[i]; // minutes
+      double currentTierCharge = waitingChargesFromDB[currentTier] ?? 0.0;
+      
+      if (totalMinutes <= currentTier) {
+        // We're within this tier - calculate proportional charge
+        if (i == 0) {
+          // First tier: 0 to currentTier minutes
+          double ratePerMinute = currentTierCharge / currentTier;
+          newCharge = totalMinutes * ratePerMinute;
+        } else {
+          // Subsequent tiers: from previous tier to current tier
+          int previousTier = sortedTiers[i - 1];
+          double previousTierCharge = waitingChargesFromDB[previousTier] ?? 0.0;
+          
+          double tierDuration = (currentTier - previousTier).toDouble();
+          double tierChargeDifference = currentTierCharge - previousTierCharge;
+          double ratePerMinute = tierChargeDifference / tierDuration;
+          
+          // Add previous tier charge + proportional charge for current tier
+          double minutesIntoTier = totalMinutes - previousTier;
+          newCharge = previousTierCharge + (minutesIntoTier * ratePerMinute);
+        }
+        break;
+      } else if (i == sortedTiers.length - 1) {
+        // Beyond last tier - extrapolate at same rate as last segment
+        int previousTier = i > 0 ? sortedTiers[i - 1] : 0;
+        double previousTierCharge = i > 0 ? (waitingChargesFromDB[previousTier] ?? 0.0) : 0.0;
+        
+        double tierDuration = (currentTier - previousTier).toDouble();
+        double tierChargeDifference = currentTierCharge - previousTierCharge;
+        double ratePerMinute = tierChargeDifference / tierDuration;
+        
+        // Calculate charge beyond last tier
+        double extraMinutes = totalMinutes - currentTier;
+        newCharge = currentTierCharge + (extraMinutes * ratePerMinute);
+        break;
       }
     }
     
     waitingCharge = newCharge;
-    debugPrint('Updated waiting charge: ₹${waitingCharge} for ${waitingMinutesElapsed} minutes');
+    debugPrint('💰 Waiting charge updated: ₹${waitingCharge.toStringAsFixed(2)} for ${totalWaitingSeconds}s (${getTotalWaitingTimeDisplay()}) = ${totalMinutes.toStringAsFixed(2)} minutes');
   }
 
   // Ride Control Methods
@@ -343,6 +394,7 @@ class RideController {
     if (!hasPermission) return false;
 
     isMeterOn = true;
+    isRidePaused = false;
     tripStartTime = DateTime.now();
     _startMeter();
     onStatusChange?.call();
@@ -350,12 +402,25 @@ class RideController {
   }
 
   void stopRide() {
-    isMeterOn = false;
+    isRidePaused = true;
     tripEndTime = DateTime.now();
     meterTimer?.cancel();
     locationTimer?.cancel();
     
-    // Stop waiting timer when ride ends
+    // Keep waiting timer active if it's running
+    // Don't stop waiting timer here - let user control it
+    
+    onStatusChange?.call();
+  }
+
+  void completeRide() {
+    isMeterOn = false;
+    isRidePaused = false;
+    tripEndTime = DateTime.now();
+    meterTimer?.cancel();
+    locationTimer?.cancel();
+    
+    // Stop waiting timer when ride is completed
     if (isWaitingTimerActive) {
       isWaitingTimerActive = false;
       waitingTimer?.cancel();
@@ -378,12 +443,17 @@ class RideController {
     resetMeter();
     
     isMeterOn = false;
+    isRidePaused = false;
     onStatusChange?.call();
   }
 
   void resumeRide() {
-    if (isMeterOn) {
+    if (isMeterOn && isRidePaused) {
+      isRidePaused = false;
+      tripEndTime = null;
       _startMeter();
+      debugPrint('Ride resumed');
+      onShowSnackBar?.call('Ride resumed', true);
     }
   }
 
@@ -391,13 +461,14 @@ class RideController {
     distance = 0.0;
     totalDistanceTravelled = 0.0;
     secondsPassed = 0;
-    fare = baseFareFromDB; // Reset to database base fare
+    fare = baseFareFromDB;
     waitingCharge = 0.0;
+    totalWaitingSeconds = 0; // NEW: Reset total waiting time
+    currentSessionWaitingSeconds = 0; // NEW: Reset session time
     waitingSeconds = 0;
-    waitingMinutesElapsed = 0;
-    waitingSecondsElapsed = 0;
     isWaitingTimerActive = false;
     isMoving = false;
+    isRidePaused = false;
     lastPosition = null;
     currentPosition = null;
     tripStartTime = null;
@@ -409,15 +480,17 @@ class RideController {
     meterTimer?.cancel();
     locationTimer?.cancel();
     
+    if (isRidePaused) return;
+    
     meterTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (!isMeterOn) return;
+      if (!isMeterOn || isRidePaused) return;
       
       secondsPassed++;
       onStatusChange?.call();
     });
 
     locationTimer = Timer.periodic(Duration(seconds: locationUpdateInterval), (timer) async {
-      if (!isMeterOn) return;
+      if (!isMeterOn || isRidePaused) return;
       await _updateLocation();
     });
 
@@ -482,7 +555,6 @@ class RideController {
     }
   }
 
-  // ENHANCED: Fare Calculation - Use database values
   void updateFare() {
     if (distance <= 1.0) {
       fare = baseFareFromDB;
@@ -504,10 +576,24 @@ class RideController {
     return '${tripEndTime!.hour.toString().padLeft(2, '0')}:${tripEndTime!.minute.toString().padLeft(2, '0')}';
   }
 
-  // Get waiting timer display with proper MM:SS format
-  String getWaitingTimerDisplay() {
+  // NEW: Get current session waiting timer display
+  String getCurrentSessionWaitingDisplay() {
     if (!isWaitingTimerActive) return '00:00';
-    return '${waitingMinutesElapsed.toString().padLeft(2, '0')}:${waitingSecondsElapsed.toString().padLeft(2, '0')}';
+    int minutes = currentSessionWaitingSeconds ~/ 60;
+    int seconds = currentSessionWaitingSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  // NEW: Get total accumulated waiting time display
+  String getTotalWaitingTimeDisplay() {
+    int minutes = totalWaitingSeconds ~/ 60;
+    int seconds = totalWaitingSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  // FIXED: Keep the original method for backward compatibility
+  String getWaitingTimerDisplay() {
+    return getTotalWaitingTimeDisplay();
   }
 
   // Utility Methods
@@ -521,11 +607,13 @@ class RideController {
 
   String getMovementStatus() {
     if (!isMeterOn) return 'Ready to Start';
+    if (isRidePaused) return 'Ride Paused';
     return isMoving ? 'On Trip' : 'Waiting';
   }
 
   Color getStatusColor() {
     if (!isMeterOn) return Color(0xFF9CA3AF);
+    if (isRidePaused) return Color(0xFFEF4444);
     return isMoving ? Color(0xFF00B562) : Color(0xFFD97706);
   }
 }

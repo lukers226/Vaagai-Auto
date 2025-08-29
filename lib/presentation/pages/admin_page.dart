@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vaagaiauto/presentation/pages/admin_addfare.dart';
+import 'package:vaagaiauto/presentation/pages/admin_profile_page.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_event.dart';
 import '../bloc/driver/driver_bloc.dart';
@@ -304,16 +305,15 @@ class AdminPageState extends State<AdminPage> {
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Column(
                     children: [
-                      // Main Menu Items
+                     const SizedBox(height: 8),
                       _buildDrawerItem(
-                        icon: Icons.dashboard_rounded,
+                        icon: Icons.people_rounded,
                         iconColor: Colors.black,
-                        title: 'Dashboard',
                         textColor: Colors.black,
+                        title: 'Profile Update',
                         onTap: () {
-                          Navigator.pop(context);
+                          _handleDrawerNavigation(const AdminProfilePage());
                         },
-                        isSelected: true, // Mark dashboard as selected
                       ),
                       const SizedBox(height: 8),
                       _buildDrawerItem(
@@ -325,6 +325,7 @@ class AdminPageState extends State<AdminPage> {
                           _handleDrawerNavigation(const AllUsersPage());
                         },
                       ),
+                      
                       const SizedBox(height: 8),
                       _buildDrawerItem(
                         icon: Icons.people_rounded,
