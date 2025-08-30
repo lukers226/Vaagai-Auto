@@ -19,7 +19,7 @@ const fareSchema = new mongoose.Schema({
   },
   waiting60min: {
     type: Number,
-    default: 0,
+    default: 60,
     min: [0, 'Waiting charge cannot be negative']
   },
   isActive: {

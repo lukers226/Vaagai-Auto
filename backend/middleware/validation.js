@@ -85,11 +85,9 @@ const validateUpdateRide = (req, res, next) => {
   next();
 };
 
-// Validate ride completion data
 const validateRideCompletion = (req, res, next) => {
   const { rideEarnings, tripData } = req.body;
   
-  // Validate ride earnings
   if (!rideEarnings && rideEarnings !== 0) {
     return res.status(400).json({ 
       success: false,
@@ -104,16 +102,14 @@ const validateRideCompletion = (req, res, next) => {
     });
   }
   
-  if (rideEarnings > 10000) { // Reasonable upper limit for safety
+  if (rideEarnings > 10000) {
     return res.status(400).json({ 
       success: false,
       message: 'Ride earnings seems too high (max: ₹10,000)' 
     });
   }
   
-  // Validate trip data (optional but recommended)
   if (tripData) {
-    // Check for required trip data fields
     const requiredFields = ['distance', 'duration', 'totalFare'];
     for (const field of requiredFields) {
       if (!tripData[field] && tripData[field] !== 0) {
@@ -124,7 +120,6 @@ const validateRideCompletion = (req, res, next) => {
       }
     }
     
-    // Validate specific trip data fields
     if (tripData.totalFare && typeof tripData.totalFare !== 'number') {
       return res.status(400).json({ 
         success: false,
@@ -153,7 +148,6 @@ const validateRideCompletion = (req, res, next) => {
       });
     }
     
-    // Ensure trip total fare matches ride earnings
     if (tripData.totalFare && Math.abs(tripData.totalFare - rideEarnings) > 0.01) {
       return res.status(400).json({ 
         success: false,
@@ -165,7 +159,6 @@ const validateRideCompletion = (req, res, next) => {
   next();
 };
 
-// Validate user ID parameter
 const validateUserId = (req, res, next) => {
   const { userId, adminId } = req.params;
   const idToValidate = userId || adminId;
@@ -184,7 +177,6 @@ const validateUserId = (req, res, next) => {
     });
   }
   
-  // Basic MongoDB ObjectId format validation (24 character hex string)
   if (!/^[a-fA-F0-9]{24}$/.test(idToValidate)) {
     return res.status(400).json({
       success: false,
@@ -195,7 +187,7 @@ const validateUserId = (req, res, next) => {
   next();
 };
 
-// UPDATED: Validate fare data - simplified for single waiting60min field
+// CLEAN: Validate fare data for fresh collection (only waiting60min field)
 const validateFareData = (req, res, next) => {
   const { baseFare, perKmRate, waiting60min } = req.body;
   
@@ -243,7 +235,7 @@ const validateFareData = (req, res, next) => {
     });
   }
   
-  // Validate waiting charge (optional field) - UPDATED for single waiting60min field
+  // Validate waiting60min charge (optional field)
   if (waiting60min !== undefined && waiting60min !== null) {
     if (typeof waiting60min !== 'number' || waiting60min < 0) {
       return res.status(400).json({
@@ -263,11 +255,9 @@ const validateFareData = (req, res, next) => {
   next();
 };
 
-// Validate fare calculation data
 const validateFareCalculation = (req, res, next) => {
   const { distance, waitingMinutes } = req.body;
   
-  // Validate distance
   if (!distance && distance !== 0) {
     return res.status(400).json({
       success: false,
@@ -289,7 +279,6 @@ const validateFareCalculation = (req, res, next) => {
     });
   }
   
-  // Validate waiting minutes (optional)
   if (waitingMinutes !== undefined && waitingMinutes !== null) {
     if (typeof waitingMinutes !== 'number' || waitingMinutes < 0) {
       return res.status(400).json({
@@ -298,7 +287,7 @@ const validateFareCalculation = (req, res, next) => {
       });
     }
     
-    if (waitingMinutes > 480) { // 8 hours max
+    if (waitingMinutes > 480) {
       return res.status(400).json({
         success: false,
         message: 'Waiting time seems too high (max: 480 minutes)'
@@ -309,11 +298,9 @@ const validateFareCalculation = (req, res, next) => {
   next();
 };
 
-// Validate admin profile update
 const validateAdminProfileUpdate = (req, res, next) => {
   const { name, password } = req.body;
 
-  // At least one field should be provided for update
   if (!name && !password && name !== '' && password !== '') {
     return res.status(400).json({
       success: false,
@@ -321,7 +308,6 @@ const validateAdminProfileUpdate = (req, res, next) => {
     });
   }
 
-  // Validate name if provided
   if (name !== undefined) {
     if (typeof name !== 'string') {
       return res.status(400).json({
@@ -345,7 +331,6 @@ const validateAdminProfileUpdate = (req, res, next) => {
     }
   }
 
-  // Validate password if provided
   if (password !== undefined) {
     if (typeof password !== 'string') {
       return res.status(400).json({

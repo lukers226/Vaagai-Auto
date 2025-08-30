@@ -9,190 +9,14 @@ router.use((req, res, next) => {
   next();
 });
 
-// @route   POST /api/fares/migrate
-// @desc    ENHANCED MIGRATION: Remove old waiting fields and ensure waiting60min exists
-// @access  Public (call once after deployment)
-router.post('/migrate', async (req, res) => {
-  try {
-    console.log('🚀 Starting ENHANCED migration...');
-    
-    // Use raw MongoDB operations to bypass Mongoose schema validation
-    const db = mongoose.connection.db;
-    const collection = db.collection('fares');
-
-    // Check existing documents
-    const totalDocs = await collection.countDocuments();
-    console.log(`📊 Total documents: ${totalDocs}`);
-
-    // Check for documents with old waiting fields
-    const docsWithOldFields = await collection.countDocuments({
-      $or: [
-        { waiting5min: { $exists: true } },
-        { waiting10min: { $exists: true } },
-        { waiting15min: { $exists: true } },
-        { waiting20min: { $exists: true } },
-        { waiting25min: { $exists: true } },
-        { waiting30min: { $exists: true } }
-      ]
-    });
-
-    console.log(`📊 Documents with old waiting fields: ${docsWithOldFields}`);
-
-    if (docsWithOldFields > 0 || totalDocs > 0) {
-      // STEP 1: Remove all old waiting fields and ensure waiting60min exists
-      const result = await collection.updateMany(
-        {}, // Update ALL documents
-        [
-          {
-            $set: {
-              waiting60min: { 
-                $cond: { 
-                  if: { $exists: ["$waiting60min"] }, 
-                  then: "$waiting60min", 
-                  else: 60 // Default value if waiting60min doesn't exist
-                } 
-              }
-            }
-          },
-          {
-            $unset: [
-              "waiting5min",
-              "waiting10min", 
-              "waiting15min",
-              "waiting20min",
-              "waiting25min",
-              "waiting30min"
-            ]
-          }
-        ]
-      );
-
-      console.log(`✅ Enhanced migration completed!`);
-      console.log(`   - Matched documents: ${result.matchedCount}`);
-      console.log(`   - Modified documents: ${result.modifiedCount}`);
-
-      // Verify migration
-      const finalCount = await collection.countDocuments({
-        waiting60min: { $exists: true }
-      });
-
-      const oldFieldsRemaining = await collection.countDocuments({
-        $or: [
-          { waiting5min: { $exists: true } },
-          { waiting10min: { $exists: true } },
-          { waiting15min: { $exists: true } },
-          { waiting20min: { $exists: true } },
-          { waiting25min: { $exists: true } },
-          { waiting30min: { $exists: true } }
-        ]
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Enhanced migration completed successfully',
-        data: {
-          totalDocuments: totalDocs,
-          documentsUpdated: result.modifiedCount,
-          documentsWithWaiting60min: finalCount,
-          oldFieldsRemaining: oldFieldsRemaining,
-          migrationDetails: {
-            matchedCount: result.matchedCount,
-            modifiedCount: result.modifiedCount
-          }
-        }
-      });
-    } else {
-      return res.status(200).json({
-        success: true,
-        message: 'No migration needed',
-        data: {
-          totalDocuments: totalDocs,
-          documentsWithWaiting60min: totalDocs
-        }
-      });
-    }
-
-  } catch (error) {
-    console.error('❌ Enhanced migration failed:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Enhanced migration failed',
-      error: error.message
-    });
-  }
-});
-
-// @route   POST /api/fares/force-clean
-// @desc    FORCE CLEAN: Remove ALL old waiting fields (nuclear option)
-// @access  Public (use if migrate doesn't work)
-router.post('/force-clean', async (req, res) => {
-  try {
-    console.log('🚀 Starting FORCE CLEAN of old waiting fields...');
-    
-    const db = mongoose.connection.db;
-    const collection = db.collection('fares');
-
-    // FORCE remove old fields from ALL documents
-    const result = await collection.updateMany(
-      {}, // All documents
-      {
-        $unset: {
-          waiting5min: "",
-          waiting10min: "",
-          waiting15min: "",
-          waiting20min: "",
-          waiting25min: "",
-          waiting30min: ""
-        },
-        $set: {
-          waiting60min: 60 // Ensure waiting60min exists
-        }
-      }
-    );
-
-    console.log(`✅ Force clean completed!`);
-    console.log(`   - Matched documents: ${result.matchedCount}`);
-    console.log(`   - Modified documents: ${result.modifiedCount}`);
-
-    // Verify cleanup
-    const oldFieldsCheck = await collection.countDocuments({
-      $or: [
-        { waiting5min: { $exists: true } },
-        { waiting10min: { $exists: true } },
-        { waiting15min: { $exists: true } },
-        { waiting20min: { $exists: true } },
-        { waiting25min: { $exists: true } },
-        { waiting30min: { $exists: true } }
-      ]
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Force clean completed successfully',
-      data: {
-        documentsUpdated: result.modifiedCount,
-        oldFieldsRemaining: oldFieldsCheck,
-        cleanupComplete: oldFieldsCheck === 0
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Force clean failed:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Force clean failed',
-      error: error.message
-    });
-  }
-});
-
 // @route   POST /api/fares/initialize
-// @desc    Initialize fare collection with default system fare
-// @access  Public
+// @desc    Initialize fare collection with default system fare (FRESH START)
+// @access  Public (call once after deployment)
 router.post('/initialize', async (req, res) => {
   try {
-    console.log('🚀 Initializing fare collection...');
+    console.log('🚀 Initializing FRESH fare collection...');
     
+    // Check if system fare already exists
     const existingFare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
     if (existingFare) {
@@ -203,28 +27,32 @@ router.post('/initialize', async (req, res) => {
       });
     }
 
+    // Create default system fare with ONLY new structure
     const defaultFareData = {
       adminId: new mongoose.Types.ObjectId(),
-      baseFare: 25,
-      perKmRate: 10,
-      waiting60min: 60,
+      baseFare: 25,           // Default base fare ₹25
+      perKmRate: 10,          // Default ₹10 per km
+      waiting60min: 60,       // Default waiting charge ₹60 per hour
       isSystemDefault: true,
       isActive: true
     };
 
+    console.log('Creating fresh default system fare:', defaultFareData);
+
     const newFare = new Fare(defaultFareData);
     const savedFare = await newFare.save();
 
-    console.log('✅ Default system fare created successfully:', savedFare._id);
+    console.log('✅ Fresh system fare created successfully:', savedFare._id);
+    console.log('✅ New fares collection created in MongoDB Atlas');
 
     return res.status(201).json({
       success: true,
-      message: 'Fare collection initialized successfully',
+      message: 'Fresh fare collection initialized successfully',
       data: savedFare
     });
 
   } catch (error) {
-    console.error('❌ Error initializing fare collection:', error);
+    console.error('❌ Error initializing fresh fare collection:', error);
     return res.status(500).json({
       success: false,
       message: 'Error initializing fare collection',
@@ -244,6 +72,7 @@ router.post('/', async (req, res) => {
 
     // Validation
     if (!baseFare || baseFare <= 0) {
+      console.log('Validation failed: Invalid baseFare');
       return res.status(400).json({
         success: false,
         message: 'Base fare is required and must be greater than 0'
@@ -251,6 +80,7 @@ router.post('/', async (req, res) => {
     }
 
     if (!perKmRate || perKmRate <= 0) {
+      console.log('Validation failed: Invalid perKmRate');
       return res.status(400).json({
         success: false,
         message: 'Per kilometer rate is required and must be greater than 0'
@@ -258,54 +88,45 @@ router.post('/', async (req, res) => {
     }
 
     if (perKmRate > 1000) {
+      console.log('Validation failed: perKmRate too high');
       return res.status(400).json({
         success: false,
         message: 'Per kilometer rate cannot exceed ₹1000'
       });
     }
 
+    if (waiting60min < 0 || waiting60min > 1000) {
+      console.log('Validation failed: Invalid waiting60min');
+      return res.status(400).json({
+        success: false,
+        message: 'Waiting charge must be between 0 and ₹1000'
+      });
+    }
+
     console.log('Looking for existing system fare...');
     
-    // Find existing fare
+    // Find or create system fare
     let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     console.log('Existing system fare found:', fare ? 'Yes' : 'No');
 
     if (fare) {
-      // Update existing system fare using raw MongoDB to ensure field cleanup
-      const db = mongoose.connection.db;
-      const collection = db.collection('fares');
+      // Update existing system fare
+      console.log('Updating existing system fare');
       
-      const updateResult = await collection.updateOne(
-        { _id: fare._id },
-        {
-          $set: {
-            baseFare: Number(baseFare),
-            perKmRate: Number(perKmRate),
-            waiting60min: Number(waiting60min),
-            updatedAt: new Date()
-          },
-          $unset: {
-            waiting5min: "",
-            waiting10min: "",
-            waiting15min: "",
-            waiting20min: "",
-            waiting25min: "",
-            waiting30min: ""
-          }
-        }
-      );
+      fare.baseFare = Number(baseFare);
+      fare.perKmRate = Number(perKmRate);
+      fare.waiting60min = Number(waiting60min);
 
-      // Get updated document
-      const updatedFare = await Fare.findById(fare._id);
-      console.log('System fare updated successfully:', updatedFare._id);
+      const savedFare = await fare.save();
+      console.log('System fare updated successfully:', savedFare._id);
 
       return res.status(200).json({
         success: true,
         message: 'System fare updated successfully',
-        data: updatedFare
+        data: savedFare
       });
     } else {
-      // Create new system fare
+      // Create new system fare (fresh collection)
       console.log('Creating new system fare');
       
       const newFareData = {
@@ -317,9 +138,12 @@ router.post('/', async (req, res) => {
         isActive: true
       };
 
+      console.log('New system fare data:', newFareData);
+
       fare = new Fare(newFareData);
       const savedFare = await fare.save();
       console.log('System fare created successfully:', savedFare._id);
+      console.log('✅ Fresh fares collection created in MongoDB Atlas');
 
       return res.status(201).json({
         success: true,
@@ -358,8 +182,9 @@ router.get('/', async (req, res) => {
     console.log('System fare found:', fare ? 'Yes' : 'No');
 
     if (!fare) {
-      console.log('⚠️ No system fare found, creating default...');
+      console.log('⚠️ No system fare found, creating fresh default...');
       
+      // Auto-create fresh default system fare
       const defaultFareData = {
         adminId: new mongoose.Types.ObjectId(),
         baseFare: 25,
@@ -372,7 +197,8 @@ router.get('/', async (req, res) => {
       fare = new Fare(defaultFareData);
       await fare.save();
       
-      console.log('✅ Default system fare created automatically');
+      console.log('✅ Fresh default system fare created automatically');
+      console.log('✅ Fresh fares collection created in MongoDB Atlas');
     }
 
     return res.status(200).json({
@@ -406,9 +232,20 @@ router.post('/calculate', async (req, res) => {
       });
     }
 
+    if (waitingMinutes < 0 || waitingMinutes > 480) {
+      return res.status(400).json({
+        success: false,
+        message: 'Waiting minutes must be between 0 and 480 (8 hours)'
+      });
+    }
+
+    // Get current system fare
     let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
     if (!fare) {
+      // Auto-create fresh default if missing
+      console.log('⚠️ No system fare found for calculation, creating fresh default...');
+      
       const defaultFareData = {
         adminId: new mongoose.Types.ObjectId(),
         baseFare: 25,
@@ -420,7 +257,7 @@ router.post('/calculate', async (req, res) => {
 
       fare = new Fare(defaultFareData);
       await fare.save();
-      console.log('✅ Default system fare created for calculation');
+      console.log('✅ Fresh default system fare created for calculation');
     }
 
     // Calculate fare components
@@ -442,15 +279,18 @@ router.post('/calculate', async (req, res) => {
       perKmRate: fare.perKmRate,
       distanceFare: Number(distanceFare.toFixed(2)),
       waitingMinutes: Number(waitingMinutes),
+      waitingIntervals: waitingMinutes > 0 ? Math.ceil(waitingMinutes / 60) : 0,
       waitingCharge: waitingCharge,
       totalFare: Number(totalFare.toFixed(2)),
       breakdown: {
         baseFare: `₹${baseFare}`,
         distanceFare: `₹${distanceFare.toFixed(2)} (${distance}km × ₹${fare.perKmRate}/km)`,
-        waitingCharge: `₹${waitingCharge} (${waitingMinutes} minutes)`,
+        waitingCharge: `₹${waitingCharge} (${waitingMinutes} minutes = ${Math.ceil(waitingMinutes / 60)} intervals)`,
         total: `₹${totalFare.toFixed(2)}`
       }
     };
+
+    console.log('Fare calculated successfully:', calculationDetails);
 
     return res.status(200).json({
       success: true,
@@ -468,40 +308,43 @@ router.post('/calculate', async (req, res) => {
   }
 });
 
-// Debug route
+// Debug route to test fresh collection
 router.get('/debug/test', async (req, res) => {
   try {
-    console.log('Testing database connection...');
+    console.log('Testing fresh database connection...');
     
     const dbStatus = mongoose.connection.readyState;
+    console.log('Database connection status:', dbStatus);
+    
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const fareCollection = collections.find(col => col.name === 'fares');
+    console.log('Fresh fares collection exists:', fareCollection ? 'Yes' : 'No');
+    
     const count = await Fare.countDocuments();
     const fareDoc = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
-    // Check for old fields
-    const db = mongoose.connection.db;
-    const collection = db.collection('fares');
-    const oldFieldsCount = await collection.countDocuments({
-      $or: [
-        { waiting5min: { $exists: true } },
-        { waiting10min: { $exists: true } },
-        { waiting15min: { $exists: true } },
-        { waiting20min: { $exists: true } },
-        { waiting25min: { $exists: true } },
-        { waiting30min: { $exists: true } }
-      ]
-    });
+    console.log('Total fare documents:', count);
+    console.log('Fresh system fare document:', fareDoc);
     
     res.json({
       success: true,
       dbStatus: dbStatus === 1 ? 'connected' : 'disconnected',
+      collectionExists: !!fareCollection,
       documentCount: count,
       systemFare: fareDoc,
       hasWaiting60min: fareDoc ? (fareDoc.waiting60min !== undefined) : false,
-      oldFieldsStillExist: oldFieldsCount > 0,
-      documentsWithOldFields: oldFieldsCount
+      hasOldWaitingFields: fareDoc ? (
+        fareDoc.waiting5min !== undefined || 
+        fareDoc.waiting10min !== undefined ||
+        fareDoc.waiting15min !== undefined ||
+        fareDoc.waiting20min !== undefined ||
+        fareDoc.waiting25min !== undefined ||
+        fareDoc.waiting30min !== undefined
+      ) : false,
+      collections: collections.map(col => col.name)
     });
   } catch (error) {
-    console.error('Debug test error:', error);
+    console.error('Fresh debug test error:', error);
     res.status(500).json({
       success: false,
       error: error.message
