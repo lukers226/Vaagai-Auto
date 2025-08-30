@@ -10,11 +10,11 @@ router.use((req, res, next) => {
 });
 
 // @route   POST /api/fares/migrate
-// @desc    ONE-TIME MIGRATION: Add waiting60min field to existing documents
+// @desc    ENHANCED MIGRATION: Remove old waiting fields and ensure waiting60min exists
 // @access  Public (call once after deployment)
 router.post('/migrate', async (req, res) => {
   try {
-    console.log('🚀 Starting migration to add waiting60min field...');
+    console.log('🚀 Starting ENHANCED migration...');
     
     // Use raw MongoDB operations to bypass Mongoose schema validation
     const db = mongoose.connection.db;
@@ -22,47 +22,79 @@ router.post('/migrate', async (req, res) => {
 
     // Check existing documents
     const totalDocs = await collection.countDocuments();
-    const docsWithoutWaiting60min = await collection.countDocuments({
-      waiting60min: { $exists: false }
+    console.log(`📊 Total documents: ${totalDocs}`);
+
+    // Check for documents with old waiting fields
+    const docsWithOldFields = await collection.countDocuments({
+      $or: [
+        { waiting5min: { $exists: true } },
+        { waiting10min: { $exists: true } },
+        { waiting15min: { $exists: true } },
+        { waiting20min: { $exists: true } },
+        { waiting25min: { $exists: true } },
+        { waiting30min: { $exists: true } }
+      ]
     });
 
-    console.log(`📊 Total documents: ${totalDocs}`);
-    console.log(`📊 Documents missing waiting60min field: ${docsWithoutWaiting60min}`);
+    console.log(`📊 Documents with old waiting fields: ${docsWithOldFields}`);
 
-    if (docsWithoutWaiting60min > 0) {
-      // Add waiting60min field and remove old waiting fields
+    if (docsWithOldFields > 0 || totalDocs > 0) {
+      // STEP 1: Remove all old waiting fields and ensure waiting60min exists
       const result = await collection.updateMany(
-        { waiting60min: { $exists: false } },
-        { 
-          $set: { waiting60min: 60 }, // Default to 60 for existing documents
-          $unset: { 
-            // Remove old waiting time fields if they exist
-            waiting5min: "",
-            waiting10min: "",
-            waiting15min: "",
-            waiting20min: "",
-            waiting25min: "",
-            waiting30min: ""
+        {}, // Update ALL documents
+        [
+          {
+            $set: {
+              waiting60min: { 
+                $cond: { 
+                  if: { $exists: ["$waiting60min"] }, 
+                  then: "$waiting60min", 
+                  else: 60 // Default value if waiting60min doesn't exist
+                } 
+              }
+            }
+          },
+          {
+            $unset: [
+              "waiting5min",
+              "waiting10min", 
+              "waiting15min",
+              "waiting20min",
+              "waiting25min",
+              "waiting30min"
+            ]
           }
-        }
+        ]
       );
 
-      console.log(`✅ Migration completed!`);
+      console.log(`✅ Enhanced migration completed!`);
       console.log(`   - Matched documents: ${result.matchedCount}`);
       console.log(`   - Modified documents: ${result.modifiedCount}`);
 
       // Verify migration
-      const updatedCount = await collection.countDocuments({
+      const finalCount = await collection.countDocuments({
         waiting60min: { $exists: true }
+      });
+
+      const oldFieldsRemaining = await collection.countDocuments({
+        $or: [
+          { waiting5min: { $exists: true } },
+          { waiting10min: { $exists: true } },
+          { waiting15min: { $exists: true } },
+          { waiting20min: { $exists: true } },
+          { waiting25min: { $exists: true } },
+          { waiting30min: { $exists: true } }
+        ]
       });
 
       return res.status(200).json({
         success: true,
-        message: 'Migration completed successfully',
+        message: 'Enhanced migration completed successfully',
         data: {
           totalDocuments: totalDocs,
           documentsUpdated: result.modifiedCount,
-          documentsWithWaiting60min: updatedCount,
+          documentsWithWaiting60min: finalCount,
+          oldFieldsRemaining: oldFieldsRemaining,
           migrationDetails: {
             matchedCount: result.matchedCount,
             modifiedCount: result.modifiedCount
@@ -70,11 +102,9 @@ router.post('/migrate', async (req, res) => {
         }
       });
     } else {
-      console.log('✅ All documents already have waiting60min field');
-      
       return res.status(200).json({
         success: true,
-        message: 'No migration needed - all documents already have waiting60min field',
+        message: 'No migration needed',
         data: {
           totalDocuments: totalDocs,
           documentsWithWaiting60min: totalDocs
@@ -83,10 +113,74 @@ router.post('/migrate', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error('❌ Enhanced migration failed:', error);
     return res.status(500).json({
       success: false,
-      message: 'Migration failed',
+      message: 'Enhanced migration failed',
+      error: error.message
+    });
+  }
+});
+
+// @route   POST /api/fares/force-clean
+// @desc    FORCE CLEAN: Remove ALL old waiting fields (nuclear option)
+// @access  Public (use if migrate doesn't work)
+router.post('/force-clean', async (req, res) => {
+  try {
+    console.log('🚀 Starting FORCE CLEAN of old waiting fields...');
+    
+    const db = mongoose.connection.db;
+    const collection = db.collection('fares');
+
+    // FORCE remove old fields from ALL documents
+    const result = await collection.updateMany(
+      {}, // All documents
+      {
+        $unset: {
+          waiting5min: "",
+          waiting10min: "",
+          waiting15min: "",
+          waiting20min: "",
+          waiting25min: "",
+          waiting30min: ""
+        },
+        $set: {
+          waiting60min: 60 // Ensure waiting60min exists
+        }
+      }
+    );
+
+    console.log(`✅ Force clean completed!`);
+    console.log(`   - Matched documents: ${result.matchedCount}`);
+    console.log(`   - Modified documents: ${result.modifiedCount}`);
+
+    // Verify cleanup
+    const oldFieldsCheck = await collection.countDocuments({
+      $or: [
+        { waiting5min: { $exists: true } },
+        { waiting10min: { $exists: true } },
+        { waiting15min: { $exists: true } },
+        { waiting20min: { $exists: true } },
+        { waiting25min: { $exists: true } },
+        { waiting30min: { $exists: true } }
+      ]
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Force clean completed successfully',
+      data: {
+        documentsUpdated: result.modifiedCount,
+        oldFieldsRemaining: oldFieldsCheck,
+        cleanupComplete: oldFieldsCheck === 0
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Force clean failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Force clean failed',
       error: error.message
     });
   }
@@ -172,28 +266,46 @@ router.post('/', async (req, res) => {
 
     console.log('Looking for existing system fare...');
     
-    // Since you have only single collection (admin-based), find or create
+    // Find existing fare
     let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     console.log('Existing system fare found:', fare ? 'Yes' : 'No');
 
     if (fare) {
-      // Update existing system fare
-      console.log('Updating existing system fare');
+      // Update existing system fare using raw MongoDB to ensure field cleanup
+      const db = mongoose.connection.db;
+      const collection = db.collection('fares');
       
-      fare.baseFare = Number(baseFare);
-      fare.perKmRate = Number(perKmRate);
-      fare.waiting60min = Number(waiting60min);
+      const updateResult = await collection.updateOne(
+        { _id: fare._id },
+        {
+          $set: {
+            baseFare: Number(baseFare),
+            perKmRate: Number(perKmRate),
+            waiting60min: Number(waiting60min),
+            updatedAt: new Date()
+          },
+          $unset: {
+            waiting5min: "",
+            waiting10min: "",
+            waiting15min: "",
+            waiting20min: "",
+            waiting25min: "",
+            waiting30min: ""
+          }
+        }
+      );
 
-      const savedFare = await fare.save();
-      console.log('System fare updated successfully:', savedFare._id);
+      // Get updated document
+      const updatedFare = await Fare.findById(fare._id);
+      console.log('System fare updated successfully:', updatedFare._id);
 
       return res.status(200).json({
         success: true,
         message: 'System fare updated successfully',
-        data: savedFare
+        data: updatedFare
       });
     } else {
-      // Create new system fare (single admin-based fare)
+      // Create new system fare
       console.log('Creating new system fare');
       
       const newFareData = {
@@ -204,8 +316,6 @@ router.post('/', async (req, res) => {
         isSystemDefault: true,
         isActive: true
       };
-
-      console.log('New system fare data:', newFareData);
 
       fare = new Fare(newFareData);
       const savedFare = await fare.save();
@@ -250,7 +360,6 @@ router.get('/', async (req, res) => {
     if (!fare) {
       console.log('⚠️ No system fare found, creating default...');
       
-      // Auto-create default system fare with new structure
       const defaultFareData = {
         adminId: new mongoose.Types.ObjectId(),
         baseFare: 25,
@@ -297,13 +406,9 @@ router.post('/calculate', async (req, res) => {
       });
     }
 
-    // Get current system fare
     let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
     if (!fare) {
-      // Auto-create default if missing
-      console.log('⚠️ No system fare found for calculation, creating default...');
-      
       const defaultFareData = {
         adminId: new mongoose.Types.ObjectId(),
         baseFare: 25,
@@ -347,8 +452,6 @@ router.post('/calculate', async (req, res) => {
       }
     };
 
-    console.log('Fare calculated successfully:', calculationDetails);
-
     return res.status(200).json({
       success: true,
       message: 'Fare calculated successfully',
@@ -365,33 +468,37 @@ router.post('/calculate', async (req, res) => {
   }
 });
 
-// Debug route to test connection and collection
+// Debug route
 router.get('/debug/test', async (req, res) => {
   try {
     console.log('Testing database connection...');
     
     const dbStatus = mongoose.connection.readyState;
-    console.log('Database connection status:', dbStatus);
-    
-    const collections = await mongoose.connection.db.listCollections().toArray();
-    const fareCollection = collections.find(col => col.name === 'fares');
-    console.log('Fares collection exists:', fareCollection ? 'Yes' : 'No');
-    
     const count = await Fare.countDocuments();
     const fareDoc = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
-    console.log('Total fare documents:', count);
-    console.log('System fare document:', fareDoc);
+    // Check for old fields
+    const db = mongoose.connection.db;
+    const collection = db.collection('fares');
+    const oldFieldsCount = await collection.countDocuments({
+      $or: [
+        { waiting5min: { $exists: true } },
+        { waiting10min: { $exists: true } },
+        { waiting15min: { $exists: true } },
+        { waiting20min: { $exists: true } },
+        { waiting25min: { $exists: true } },
+        { waiting30min: { $exists: true } }
+      ]
+    });
     
     res.json({
       success: true,
       dbStatus: dbStatus === 1 ? 'connected' : 'disconnected',
-      collectionExists: !!fareCollection,
       documentCount: count,
       systemFare: fareDoc,
-      hasPerKmRate: fareDoc ? (fareDoc.perKmRate !== undefined) : false,
       hasWaiting60min: fareDoc ? (fareDoc.waiting60min !== undefined) : false,
-      collections: collections.map(col => col.name)
+      oldFieldsStillExist: oldFieldsCount > 0,
+      documentsWithOldFields: oldFieldsCount
     });
   } catch (error) {
     console.error('Debug test error:', error);
