@@ -18,32 +18,7 @@ const fareSchema = new mongoose.Schema({
     min: [0.1, 'Per kilometer rate must be at least 0.1'],
     max: [1000, 'Per kilometer rate cannot exceed 1000']
   },
-  waiting5min: {
-    type: Number,
-    default: 0,
-    min: [0, 'Waiting charge cannot be negative']
-  },
-  waiting10min: {
-    type: Number,
-    default: 0,
-    min: [0, 'Waiting charge cannot be negative']
-  },
-  waiting15min: {
-    type: Number,
-    default: 0,
-    min: [0, 'Waiting charge cannot be negative']
-  },
-  waiting20min: {
-    type: Number,
-    default: 0,
-    min: [0, 'Waiting charge cannot be negative']
-  },
-  waiting25min: {
-    type: Number,
-    default: 0,
-    min: [0, 'Waiting charge cannot be negative']
-  },
-  waiting30min: {
+  waiting60min: {
     type: Number,
     default: 0,
     min: [0, 'Waiting charge cannot be negative']
@@ -61,7 +36,6 @@ const fareSchema = new mongoose.Schema({
   collection: 'fares'
 });
 
-// Ensure only one active system fare exists
 fareSchema.index({ isSystemDefault: 1, isActive: 1 }, { 
   unique: true,
   partialFilterExpression: { isSystemDefault: true, isActive: true }

@@ -42,34 +42,24 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
     super.initState();
     debugPrint('🚀 StartRidePage initState started for user: ${widget.user.name} (ID: ${widget.user.id})');
     
-    // Initialize components first
     _rideController = RideController();
     _widgets = RideWidgets(context);
     _initializeAnimations();
     
-    // Initialize ride controller
     _rideController.initialize(
       onLocationUpdate: _onLocationUpdate,
       onStatusChange: _onStatusChange,
       onShowSnackBar: _showSnackBar,
     );
     
-    // Load fare data from database FIRST, then mark as initialized
     _initializeApp();
-    
-    // Prevent call interruptions from ending ride
-    _preventCallInterruption();
   }
 
-  // ENHANCED: Complete app initialization flow
   Future<void> _initializeApp() async {
     try {
       debugPrint('📱 Starting app initialization...');
-      
-      // Step 1: Load fare data from database
       await _loadFareDataFromDatabase();
       
-      // Step 2: Mark as initialized
       if (mounted && !_isDisposed) {
         setState(() {
           _isInitialized = true;
@@ -81,65 +71,58 @@ class _StartRidePageState extends State<StartRidePage> with TickerProviderStateM
       debugPrint('❌ App initialization failed: $e');
       if (mounted && !_isDisposed) {
         setState(() {
-          _isInitialized = true; // Still mark as initialized to show UI
+          _isInitialized = true;
         });
         _showSnackBar('⚠️ Initialization completed with warnings', false);
       }
     }
   }
 
-  // ENHANCED: Load fare data with comprehensive error handling
-Future<void> _loadFareDataFromDatabase() async {
-  try {
-    debugPrint('🔄 Starting fare data load from database...');
-    
-    // Make API call to get fare data
-    Map<String, dynamic> fareData = await _apiService.getFareData();
-    debugPrint('✅ Raw fare data received: $fareData');
-    
-    if (fareData.isNotEmpty) {
-      // Set the fare data in the controller
-      _rideController.setFareDataFromDB(fareData);
+  Future<void> _loadFareDataFromDatabase() async {
+    try {
+      debugPrint('🔄 Starting fare data load from database...');
       
-      if (mounted && !_isDisposed) {
-        setState(() {
-          _fareDataLoaded = true;
-        });
+      Map<String, dynamic> fareData = await _apiService.getFareData();
+      debugPrint('✅ Raw fare data received: $fareData');
+      
+      if (fareData.isNotEmpty) {
+        _rideController.setFareDataFromDB(fareData);
         
-        debugPrint('💯 Database fare data loaded successfully:');
-        debugPrint('   📊 Base Fare: ₹${_rideController.baseFareFromDB}');
-        debugPrint('   ⏱️ Waiting Charges: ${_rideController.waitingChargesFromDB}');
-        
-        // Show success message after a short delay to avoid context issues
-        Future.delayed(Duration(milliseconds: 500), () {
-          if (mounted && !_isDisposed) {
-            _showSnackBar(
-              '✅ Ready to start! Base fare: ₹${_rideController.baseFareFromDB.toStringAsFixed(0)}', 
-              true
-            );
-          }
-        });
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _fareDataLoaded = true;
+          });
+          
+          debugPrint('💯 Database fare data loaded successfully:');
+          debugPrint('   📊 Base Fare: ₹${_rideController.baseFareFromDB}');
+          
+          Future.delayed(Duration(milliseconds: 500), () {
+            if (mounted && !_isDisposed) {
+              _showSnackBar(
+                '✅ Ready to start! Base fare: ₹${_rideController.baseFareFromDB.toStringAsFixed(0)}', 
+                true
+              );
+            }
+          });
+        }
+      } else {
+        throw Exception('Empty fare data received from server');
       }
-    } else {
-      throw Exception('Empty fare data received from server');
+    } on TimeoutException {
+      debugPrint('⏱️ Timeout while loading fare data');
+      _handleFareDataError('Connection timeout. Using default rates.');
+    } on SocketException {
+      debugPrint('🌐 Network error while loading fare data');
+      _handleFareDataError('Network error. Using default rates.');
+    } on FormatException {
+      debugPrint('🔧 Format error while parsing fare data');
+      _handleFareDataError('Data format error. Using default rates.');
+    } catch (e) {
+      debugPrint('❌ Unexpected error loading fare data: $e');
+      _handleFareDataError('Server error. Using default rates.');
     }
-  } on TimeoutException {
-    debugPrint('⏱️ Timeout while loading fare data');
-    _handleFareDataError('Connection timeout. Using default rates.');
-  } on SocketException {
-    debugPrint('🌐 Network error while loading fare data');
-    _handleFareDataError('Network error. Using default rates.');
-  } on FormatException {
-    debugPrint('🔧 Format error while parsing fare data');
-    _handleFareDataError('Data format error. Using default rates.');
-  } catch (e) {
-    debugPrint('❌ Unexpected error loading fare data: $e');
-    _handleFareDataError('Server error. Using default rates.');
   }
-}
 
-
-  // ENHANCED: Handle fare data loading errors
   void _handleFareDataError(String message) {
     if (mounted && !_isDisposed) {
       setState(() {
@@ -148,15 +131,15 @@ Future<void> _loadFareDataFromDatabase() async {
       
       _showSnackBar('⚠️ $message', false);
       
-      // Set default values if database fails
       _rideController.setFareDataFromDB({
-        'baseFare': 100,
-        'waiting5min': 10,
-        'waiting10min': 20,
-        'waiting15min': 30,
-        'waiting20min': 40,
-        'waiting25min': 50,
-        'waiting30min': 60,
+        'baseFare': 59,
+        'perKmRate': 18,
+        'waiting5min': 50,
+        'waiting10min': 60,
+        'waiting15min': 70,
+        'waiting20min': 80,
+        'waiting25min': 90,
+        'waiting30min': 100,
       });
       
       setState(() {
@@ -164,16 +147,6 @@ Future<void> _loadFareDataFromDatabase() async {
       });
       
       debugPrint('🔧 Default fare values set as fallback');
-    }
-  }
-
-  // Prevent call interruption from ending rides
-  void _preventCallInterruption() {
-    try {
-      WidgetsBinding.instance.addObserver(_AppLifecycleObserver(_rideController));
-      debugPrint('🔒 App lifecycle observer added');
-    } catch (e) {
-      debugPrint('⚠️ Failed to add lifecycle observer: $e');
     }
   }
 
@@ -261,16 +234,13 @@ Future<void> _loadFareDataFromDatabase() async {
   Future<void> _startRide() async {
     if (!mounted || _isDisposed) return;
     
-    // Check if app is initialized
     if (!_isInitialized) {
       _showSnackBar('⏳ Please wait for app to finish loading...', false);
       return;
     }
     
-    // Check if fare data is loaded
     if (!_fareDataLoaded) {
       _showSnackBar('⏳ Please wait for fare data to load...', false);
-      // Try to reload fare data
       _loadFareDataFromDatabase();
       return;
     }
@@ -278,10 +248,7 @@ Future<void> _loadFareDataFromDatabase() async {
     try {
       bool success = await _rideController.startRide();
       if (success && mounted && !_isDisposed) {
-        _showSnackBar(
-          '🚗 Ride started! Base fare: ₹${_rideController.baseFareFromDB.toStringAsFixed(0)}', 
-          true
-        );
+        _showSnackBar('🚗 Ride started!', true);
       } else {
         _showSnackBar('❌ Failed to start ride. Please check GPS permissions.', false);
       }
@@ -291,89 +258,143 @@ Future<void> _loadFareDataFromDatabase() async {
     }
   }
 
-  // UPDATED: End ride now pauses the ride instead of stopping completely
   void _endRide() {
     if (!mounted || _isDisposed) return;
     try {
-      _rideController.stopRide(); // This now pauses the ride
-      _showTripSummary();
+      _rideController.endRide();
+      _showCompletionDialog();
     } catch (e) {
       debugPrint('❌ Error ending ride: $e');
       _showSnackBar('❌ Error ending ride. Please try again.', false);
     }
   }
 
-  void _showCancelRideConfirmation() {
+  void _showCompletionDialog() {
     if (!mounted || _isDisposed) return;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          contentPadding: EdgeInsets.zero,
-          content: Container(
-            padding: EdgeInsets.all(24),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            padding: EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 60, height: 60,
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1), 
+                    color: Color(0xFF00B562).withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.warning, color: Colors.red[600], size: 30),
+                  child: Icon(
+                    Icons.check_circle,
+                    color: Color(0xFF00B562),
+                    size: 30,
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Trip Completed!',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
                 ),
                 SizedBox(height: 20),
-                Text(
-                  'Confirm Cancel Ride',
-                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87),
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildSummaryRow('Distance', '${_rideController.formatDistance()} km'),
+                      _buildSummaryRow('Duration', _rideController.formatTime()),
+                      _buildSummaryRow('Base Fare', '₹${_rideController.baseFareFromDB.toStringAsFixed(2)}'),
+                      if (_rideController.waitingSeconds > 0)
+                        _buildSummaryRow('Waiting Time', _rideController.getWaitingTimeDisplay()),
+                      if (_rideController.totalWaitingFare > 0)
+                        _buildSummaryRow('Waiting Charge', '₹${_rideController.totalWaitingFare.toStringAsFixed(2)}'),
+                      Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total Fare',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            '₹${_rideController.totalFare.toStringAsFixed(2)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF00B562),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => _generateAndShareBill(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.share, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Share Bill',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 SizedBox(height: 12),
-                Text(
-                  _rideController.isMeterOn
-                      ? 'Are you sure you want to cancel the ongoing ride? This action cannot be undone.'
-                      : 'Are you sure you want to cancel and go back to the homepage?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.4),
-                ),
-                SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          if (mounted && !_isDisposed) Navigator.pop(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey[300]!),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text('No, Keep Ride', style: TextStyle(color: Colors.grey[600])),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(context); // Close dialog
+                      _completeRideAndReturn();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.grey[300]!),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text(
+                      'Back to Home',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
                       ),
                     ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (mounted && !_isDisposed) {
-                            Navigator.pop(context);
-                            _cancelRideAndRedirect();
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red[600],
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          elevation: 0,
-                        ),
-                        child: Text('Yes, Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -383,12 +404,10 @@ Future<void> _loadFareDataFromDatabase() async {
     );
   }
 
-  Future<void> _cancelRideAndRedirect() async {
+  Future<void> _completeRideAndReturn() async {
     if (!mounted || _isDisposed) return;
     
     try {
-      _rideController.cancelRide();
-      
       String userId = widget.user.id ?? '';
       if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
         _showSnackBar('Error: User session invalid. Please login again.', false);
@@ -396,62 +415,45 @@ Future<void> _loadFareDataFromDatabase() async {
         return;
       }
       
-      if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
-        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
-        Navigator.of(context).pop();
-        return;
-      }
+      double rideEarnings = _rideController.totalFare;
+      _showSnackBar('Updating earnings...', true);
       
-      _showSnackBar('Updating database...', true);
-      bool success = await _apiService.updateCancelledRides(userId);
+      Map<String, dynamic> tripData = {
+        'distance': _rideController.formatDistance(),
+        'duration': _rideController.formatTime(),
+        'baseFare': _rideController.baseFareFromDB,
+        'totalFare': _rideController.totalFare,
+        'waitingTime': _rideController.getWaitingTimeDisplay(),
+        'waitingCharge': _rideController.totalWaitingFare,
+        'startTime': _rideController.getTripStartTime(),
+        'endTime': _rideController.getTripEndTime(),
+        'completedAt': DateTime.now().toIso8601String(),
+      };
+      
+      bool success = await _apiService.updateCompletedRide(
+        userId: userId,
+        rideEarnings: rideEarnings,
+        tripData: tripData,
+      );
+      
+      await _updateDailyStats(rideEarnings);
       
       if (!mounted || _isDisposed) return;
       
       if (success) {
         Navigator.of(context).pop();
-        _showSnackBar('Ride cancelled successfully', true);
+        _showSnackBar('Trip completed! Earnings updated: ₹${rideEarnings.toStringAsFixed(2)}', true);
       } else {
-        _showSnackBar('Ride cancelled but database update failed', false);
+        _showSnackBar('Trip completed but database update failed', false);
         Navigator.of(context).pop();
       }
     } catch (e) {
-      debugPrint('❌ Error cancelling ride: $e');
-      _showSnackBar('Ride cancelled but database error occurred', false);
+      debugPrint('❌ Error completing ride: $e');
+      _showSnackBar('Trip completed but database error occurred', false);
       if (mounted && !_isDisposed) {
         Navigator.of(context).pop();
       }
     }
-  }
-
-  // UPDATED: Enhanced trip summary with proper continue/complete functionality
-  void _showTripSummary() {
-    if (!mounted || _isDisposed) return;
-    _widgets.showTripSummary(
-      context: context,
-      distance: _rideController.formatDistance(),
-      duration: _rideController.formatTime(),
-      baseFare: _rideController.fare,
-      waitingCharge: _rideController.waitingCharge,
-      totalFare: _rideController.totalFare,
-      driverName: widget.user.name ?? "Driver",
-      tripStartTime: _rideController.getTripStartTime(),
-      tripEndTime: _rideController.getTripEndTime(),
-      onContinue: () {
-        if (mounted && !_isDisposed) {
-          Navigator.of(context).pop();
-          _rideController.resumeRide(); // NEW: Resume the ride
-          _showSnackBar('Ride resumed successfully', true);
-        }
-      },
-      onComplete: () {
-        if (mounted && !_isDisposed) {
-          Navigator.of(context).pop();
-          _rideController.completeRide(); // NEW: Complete the ride permanently
-          _handleCompleteRide();
-        }
-      },
-      onShareCustomer: _showCustomerPhoneInput,
-    );
   }
 
   Future<void> _updateDailyStats(double earnings) async {
@@ -495,144 +497,7 @@ Future<void> _loadFareDataFromDatabase() async {
     }
   }
 
-  Future<void> _handleCompleteRide() async {
-    if (!mounted || _isDisposed) return;
-    
-    try {
-      String userId = widget.user.id ?? '';
-      if (userId.isEmpty || userId == 'null' || userId == 'undefined') {
-        _showSnackBar('Error: User session invalid. Please login again.', false);
-        Navigator.of(context).pop();
-        return;
-      }
-      
-      if (!RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(userId)) {
-        _showSnackBar('Error: Invalid user ID format. Please login again.', false);
-        Navigator.of(context).pop();
-        return;
-      }
-      
-      double rideEarnings = _rideController.totalFare;
-      _showSnackBar('Updating earnings...', true);
-      
-      Map<String, dynamic> tripData = {
-        'distance': _rideController.formatDistance(),
-        'duration': _rideController.formatTime(),
-        'baseFare': _rideController.fare,
-        'waitingCharge': _rideController.waitingCharge,
-        'totalFare': _rideController.totalFare,
-        'startTime': _rideController.getTripStartTime(),
-        'endTime': _rideController.getTripEndTime(),
-        'completedAt': DateTime.now().toIso8601String(),
-      };
-      
-      bool success = await _apiService.updateCompletedRide(
-        userId: userId,
-        rideEarnings: rideEarnings,
-        tripData: tripData,
-      );
-      
-      await _updateDailyStats(rideEarnings);
-      
-      if (!mounted || _isDisposed) return;
-      
-      if (success) {
-        Navigator.of(context).pop();
-        _showSnackBar('Trip completed! Earnings updated: ₹${rideEarnings.toStringAsFixed(2)}', true);
-      } else {
-        _showSnackBar('Trip completed but database update failed', false);
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      debugPrint('❌ Error completing ride: $e');
-      _showSnackBar('Trip completed but database error occurred', false);
-      if (mounted && !_isDisposed) {
-        Navigator.of(context).pop();
-      }
-    }
-  }
-
-  void _showCustomerPhoneInput() {
-    if (!mounted || _isDisposed) return;
-    final TextEditingController phoneController = TextEditingController();
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-            child: SingleChildScrollView(
-              child: Container(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 60, height: 60,
-                      decoration: BoxDecoration(
-                        color: Color(0xFF25D366).withOpacity(0.1), 
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.image, color: Color(0xFF25D366), size: 30),
-                    ),
-                    SizedBox(height: 16),
-                    Text('Share Trip Bill', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
-                    SizedBox(height: 10),
-                    Text('Generate and share bill image with customer', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.3)),
-                    SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.grey[300]!),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: Text('Cancel', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _generateAndShareBillImage(phoneController.text.trim());
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Color(0xFF25D366),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              elevation: 0,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.image, size: 18),
-                                SizedBox(width: 6),
-                                Text('Generate & Share', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _generateAndShareBillImage(String phoneNumber) async {
+  Future<void> _generateAndShareBill() async {
     if (!mounted || _isDisposed) return;
     try {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -653,7 +518,7 @@ Future<void> _loadFareDataFromDatabase() async {
       );
       
       final Uint8List imageBytes = await _screenshotController.captureFromWidget(
-        _buildUltraCompactBillWidget(),
+        _buildBillWidget(),
         delay: Duration(milliseconds: 500),
         pixelRatio: 2.0,
         targetSize: Size(350, 600),
@@ -665,11 +530,7 @@ Future<void> _loadFareDataFromDatabase() async {
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(imageBytes);
       
-      if (!await file.exists() || await file.length() == 0) {
-        throw Exception('Failed to generate bill image');
-      }
-      
-      String shareMessage = '''🚗 *Vaagai Auto - Trip Receipt*
+      String shareMessage = '''🚗 *Vaagai Meter Auto - Trip Receipt*
 
 📍 Distance: ${_rideController.formatDistance()} km
 ⏱️ Duration: ${_rideController.formatTime()}
@@ -678,19 +539,18 @@ Future<void> _loadFareDataFromDatabase() async {
 👨‍💼 Driver: ${widget.user.name ?? "Driver"}
 🕐 ${_rideController.getTripStartTime()} - ${_rideController.getTripEndTime()}
 
-Thank you for choosing Vaagai Auto! 🙏''';
+Thank you for choosing Vaagai Meter Auto! 🙏''';
       
       await Share.shareXFiles(
         [XFile(file.path)],
         text: shareMessage,
-        subject: 'Vaagai Auto - Trip Receipt',
+        subject: 'Vaagai Meter Auto - Trip Receipt',
       );
       
       if (mounted && !_isDisposed) {
         _showSnackBar('Bill shared successfully!', true);
       }
       
-
       Timer(Duration(minutes: 2), () async {
         try { 
           if (await file.exists()) await file.delete(); 
@@ -704,7 +564,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
     }
   }
 
-  Widget _buildUltraCompactBillWidget() {
+  Widget _buildBillWidget() {
     final DateTime now = DateTime.now();
     final String receiptId = 'VA${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
     return Material(
@@ -733,7 +593,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
                       Text('🚗', style: TextStyle(fontSize: 20)),
                       SizedBox(width: 6),
                       Text(
-                        'VAAGAI AUTO',
+                        'VAAGAI Meter AUTO',
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -789,11 +649,13 @@ Thank you for choosing Vaagai Auto! 🙏''';
                       children: [
                         Text('📋 TRIP DETAILS', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
                         SizedBox(height: 8),
-                        _buildMicroBillRow('Driver', widget.user.name ?? "Driver"),
-                        _buildMicroBillRow('Date', '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
-                        _buildMicroBillRow('Time', '${_rideController.getTripStartTime()} - ${_rideController.getTripEndTime()}'),
-                        _buildMicroBillRow('Distance', '${_rideController.formatDistance()} km'),
-                        _buildMicroBillRow('Duration', _rideController.formatTime()),
+                        _buildBillRow('Driver', widget.user.name ?? "Driver"),
+                        _buildBillRow('Date', '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
+                        _buildBillRow('Time', '${_rideController.getTripStartTime()} - ${_rideController.getTripEndTime()}'),
+                        _buildBillRow('Distance', '${_rideController.formatDistance()} km'),
+                        _buildBillRow('Duration', _rideController.formatTime()),
+                        if (_rideController.waitingSeconds > 0)
+                          _buildBillRow('Waiting Time', _rideController.getWaitingTimeDisplay()),
                       ],
                     ),
                   ),
@@ -811,11 +673,11 @@ Thank you for choosing Vaagai Auto! 🙏''';
                       children: [
                         Text('💰 FARE BREAKDOWN', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
                         SizedBox(height: 8),
-                        _buildMicroBillRow('Base Fare', '₹${_rideController.baseFareFromDB.toStringAsFixed(2)}'),
+                        _buildBillRow('Base Fare', '₹${_rideController.baseFareFromDB.toStringAsFixed(2)}'),
                         if (_rideController.distance > 1.0)
-                          _buildMicroBillRow('Extra (₹18/km)', '₹${(_rideController.fare - _rideController.baseFareFromDB).toStringAsFixed(2)}'),
-                        if (_rideController.waitingCharge > 0)
-                          _buildMicroBillRow('Waiting', '₹${_rideController.waitingCharge.toStringAsFixed(2)}'),
+                          _buildBillRow('Extra Distance', '₹${((_rideController.distance - 1.0) * _rideController.perKmRateFromDB).toStringAsFixed(2)}'),
+                        if (_rideController.totalWaitingFare > 0)
+                          _buildBillRow('Waiting Charge', '₹${_rideController.totalWaitingFare.toStringAsFixed(2)}'),
                       ],
                     ),
                   ),
@@ -851,19 +713,11 @@ Thank you for choosing Vaagai Auto! 🙏''';
                     ),
                     child: Column(
                       children: [
-                        Text('🙏 Thank You for Choosing Vaagai Auto!', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87), textAlign: TextAlign.center),
+                        Text('🙏 Thank You for Choosing Vaagai Meter Auto!', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87), textAlign: TextAlign.center),
                         SizedBox(height: 4),
                         Text('Have a safe journey! ✨', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.grey[600]), textAlign: TextAlign.center),
-                        SizedBox(height: 6),
-                        Text('📞 Support: +91-XXXXXXXXXX', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w500, color: Colors.grey[600]), textAlign: TextAlign.center),
                       ],
                     ),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Generated: ${now.day}/${now.month}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-                    style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w500, color: Colors.grey[500]),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -874,7 +728,7 @@ Thank you for choosing Vaagai Auto! 🙏''';
     );
   }
 
-  Widget _buildMicroBillRow(String label, String value) {
+  Widget _buildBillRow(String label, String value) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -882,6 +736,29 @@ Thank you for choosing Vaagai Auto! 🙏''';
         children: [
           Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.grey[700])),
           Text(value, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
         ],
       ),
     );
@@ -896,12 +773,11 @@ Thank you for choosing Vaagai Auto! 🙏''';
         child: Column(
           children: [
             _widgets.buildHeader(
-              title: 'Vaagai Auto',
+              title: 'Vaagai Meter Auto',
               onBackPressed: () {
                 if (mounted && !_isDisposed) Navigator.pop(context);
               },
-              showCancelRide: true,
-              onCancelRide: _showCancelRideConfirmation,
+              showCancelRide: false,
             ),
             Expanded(
               child: _isInitialized ? SingleChildScrollView(
@@ -917,15 +793,62 @@ Thank you for choosing Vaagai Auto! 🙏''';
                           isOnline: true,
                         ),
                         SizedBox(height: 16),
-                        _widgets.buildLocationStatus(
-                          isLocationServiceEnabled: _rideController.isLocationServiceEnabled,
-                          hasLocationPermission: _rideController.hasLocationPermission,
-                          currentPosition: _rideController.currentPosition,
+                        // Single row with Start Ride and End Ride buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed: _rideController.isMeterOn ? null : _startRide,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _rideController.isMeterOn ? Colors.grey : Colors.yellow,
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    elevation: 0,
+                                  ),
+                                  child: Text(
+                                    'START RIDE',
+                                    style: GoogleFonts.lato(
+                                      fontSize: 16,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: SizedBox(
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed: _rideController.isMeterOn ? _endRide : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _rideController.isMeterOn ? Colors.red[600] : Colors.grey,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    elevation: 0,
+                                  ),
+                                  child: Text(
+                                    'END RIDE',
+                                    style: GoogleFonts.lato(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         SizedBox(height: 20),
-                        _rideController.isMeterOn
-                            ? _buildActiveRideUI()
-                            : _buildStartRideUI(),
+                        // **ALWAYS SHOW CARDS**: Show cards regardless of ride status
+                        _buildFareDisplay(),
+                        SizedBox(height: 16),
+                        _buildMetricsGrid(),
                       ],
                     ),
                   ),
@@ -938,7 +861,6 @@ Thank you for choosing Vaagai Auto! 🙏''';
     );
   }
 
-  // Loading view while app initializes
   Widget _buildLoadingView() {
     return Center(
       child: Column(
@@ -949,19 +871,11 @@ Thank you for choosing Vaagai Auto! 🙏''';
           ),
           SizedBox(height: 20),
           Text(
-            'Initializing Vaagai Auto...',
+            'Initializing Vaagai Meter Auto...',
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.grey[700],
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Loading fare data and GPS settings',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
             ),
           ),
         ],
@@ -969,39 +883,164 @@ Thank you for choosing Vaagai Auto! 🙏''';
     );
   }
 
-  Widget _buildStartRideUI() {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: _widgets.buildStartRideUI(onStartRide: _startRide),
-    );
-  }
-
-  Widget _buildActiveRideUI() {
-    return _widgets.buildActiveRideUI(
-      rideController: _rideController,
-      pulseAnimation: _pulseAnimation,
-      onEndRide: _endRide,
-      onWaitingTimeChanged: (int newValue) {
-   
+  Widget _buildFareDisplay() {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          // **ONLY PULSE WHEN RIDE IS ACTIVE AND MOVING**
+          scale: (_rideController.isMeterOn && _rideController.isVehicleMoving) ? _pulseAnimation.value : 1.0,
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1F2937), Color(0xFF111827)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'CURRENT FARE',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white60,
+                    letterSpacing: 2,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  // **SHOW REAL-TIME FARE OR ZERO WHEN NOT STARTED**
+                  '₹${_rideController.isMeterOn ? _rideController.currentFare.toStringAsFixed(2) : "0.00"}',
+                  style: GoogleFonts.inter(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }
-}
 
-class _AppLifecycleObserver extends WidgetsBindingObserver {
-  final RideController rideController;
+  Widget _buildMetricsGrid() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _buildMetric(
+                'Distance', 
+                // **SHOW REAL DISTANCE OR ZERO WHEN NOT STARTED**
+                _rideController.isMeterOn ? '${_rideController.formatDistance()} km' : '0.00 km', 
+                Icons.straighten
+              )),
+              Container(width: 1, height: 40, color: Colors.grey[300]),
+              Expanded(child: _buildMetric(
+                'Base Fare', 
+                // **ALWAYS SHOW BASE FARE FROM DATABASE**
+                '₹${_rideController.baseFareFromDB.toStringAsFixed(2)}', 
+                Icons.currency_rupee
+              )),
+            ],
+          ),
+          Divider(height: 24, color: Colors.grey[200]),
+          Row(
+            children: [
+              Expanded(child: _buildMetric(
+                'Total Time', 
+                // **SHOW REAL TIME OR ZERO WHEN NOT STARTED**
+                _rideController.isMeterOn ? _rideController.formatTime() : '00:00', 
+                Icons.timer
+              )),
+              Container(width: 1, height: 40, color: Colors.grey[300]),
+              Expanded(child: _buildMetric(
+                'Status', 
+                // **SHOW REAL STATUS OR READY WHEN NOT STARTED**
+                _rideController.isMeterOn ? _rideController.getMovementStatus() : 'Ready to Start', 
+                Icons.info
+              )),
+            ],
+          ),
+          // **SHOW WAITING TIME ONLY WHEN THERE'S ACTUAL WAITING TIME**
+          if (_rideController.isMeterOn && _rideController.waitingSeconds > 0) ...[
+            Divider(height: 24, color: Colors.grey[200]),
+            Row(
+              children: [
+                Expanded(child: _buildMetric('Waiting Time', _rideController.getWaitingTimeDisplay(), Icons.access_time)),
+                Container(width: 1, height: 40, color: Colors.grey[300]),
+                Expanded(child: _buildMetric('Waiting Charge', '₹${_rideController.totalWaitingFare.toStringAsFixed(2)}', Icons.schedule)),
+              ],
+            ),
+          ],
+          // **SHOW EXTRA DISTANCE ONLY WHEN THERE'S EXTRA DISTANCE**
+          if (_rideController.isMeterOn && _rideController.distance > 1.0) ...[
+            Divider(height: 24, color: Colors.grey[200]),
+            Row(
+              children: [
+                Expanded(child: _buildMetric('Extra Distance', '${(_rideController.distance - 1.0).toStringAsFixed(3)} km', Icons.timeline)),
+                Container(width: 1, height: 40, color: Colors.grey[300]),
+                Expanded(child: _buildMetric('Extra Charge', '₹${((_rideController.distance - 1.0) * _rideController.perKmRateFromDB).toStringAsFixed(2)}', Icons.add)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-  _AppLifecycleObserver(this.rideController);
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    
-    // Prevent ride from ending when app goes to background (call interruption)
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      debugPrint('App paused/inactive - Ride continues running');
-    } else if (state == AppLifecycleState.resumed) {
-      debugPrint('App resumed - Ride still running');
-    }
+  Widget _buildMetric(String title, String value, IconData icon) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: Color(0xFF00B562)),
+          SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 }

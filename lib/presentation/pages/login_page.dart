@@ -274,7 +274,7 @@ class LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixi
                       
                       // Brand Title with Animation
                       Text(
-                        'Vaagai Auto',
+                        'Vaagai Meter Auto',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -491,7 +491,7 @@ class LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixi
                       
                       // Footer
                       Text(
-                        '© 2025 Vaagai Auto - All Rights Reserved',
+                        '© 2025 Vaagai Meter Auto - All Rights Reserved',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[500],

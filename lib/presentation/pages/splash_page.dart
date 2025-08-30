@@ -165,7 +165,7 @@ class SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                     SlideTransition(
                       position: _leftTextAnimation,
                       child: Text(
-                        'Vaagai',
+                        'Vaagai Meter',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,

@@ -6,26 +6,26 @@ class RideController {
   // Ride metrics
   double distance = 0.0;
   int secondsPassed = 0;
-  double fare = 100.0; // Will be updated from database
-  double waitingCharge = 0.0;
+  double currentFare = 0.0;
+  double baseFareFromDB = 100.0;
+  double perKmRateFromDB = 18.0;
+  
+  // Waiting time and charges
+  int waitingSeconds = 0;
+  double totalWaitingFare = 0.0;
+  bool isVehicleMoving = false;
+  Timer? waitingTimer;
   
   // Database fare structure
   Map<String, dynamic>? fareData;
-  double baseFareFromDB = 100.0;
   Map<int, double> waitingChargesFromDB = {
-    5: 10.0,
-    10: 20.0,
-    15: 30.0,
-    20: 40.0,
-    25: 50.0,
-    30: 60.0,
+    5: 50.0,   // 5 minutes = 50 rupees
+    10: 60.0,  // 10 minutes = 60 rupees
+    15: 70.0,  // 15 minutes = 70 rupees
+    20: 80.0,  // 20 minutes = 80 rupees
+    25: 90.0,  // 25 minutes = 90 rupees
+    30: 100.0, // 30 minutes = 100 rupees
   };
-  
-  // ENHANCED: Waiting time with cumulative tracking
-  bool isWaitingTimerActive = false;
-  int totalWaitingSeconds = 0; // NEW: Total accumulated waiting time
-  int currentSessionWaitingSeconds = 0; // NEW: Current session time
-  Timer? waitingTimer;
   
   // Trip timing
   DateTime? tripStartTime;
@@ -39,12 +39,10 @@ class RideController {
   // State management
   bool isMeterOn = false;
   bool isRidePaused = false;
-  int waitingSeconds = 0;
   
   // GPS tracking variables
   Position? lastPosition;
   Position? currentPosition;
-  bool isMoving = false;
   double totalDistanceTravelled = 0.0;
   
   // Location tracking settings
@@ -60,42 +58,37 @@ class RideController {
   VoidCallback? onStatusChange;
   Function(String, bool)? onShowSnackBar;
 
-  double get totalFare => fare + waitingCharge;
+  double get totalFare => currentFare;
 
-  // ENHANCED: Set fare data from database with improved parsing
+  // Set fare data from database
   void setFareDataFromDB(Map<String, dynamic> data) {
     debugPrint('Setting fare data from database: $data');
     fareData = data;
     
-    // ENHANCED: Extract base fare with better error handling
+    // Extract base fare
     final extractedBaseFare = _extractNumericValue(data['baseFare'], 100.0);
     baseFareFromDB = extractedBaseFare;
-    fare = baseFareFromDB;
     
-    // Update waiting charges from database with validation
+    // Extract per km rate
+    final extractedPerKmRate = _extractNumericValue(data['perKmRate'], 18.0);
+    perKmRateFromDB = extractedPerKmRate;
+    
+    // Update waiting charges from database - EXACT VALUES
     waitingChargesFromDB = {
-      5: _extractNumericValue(data['waiting5min'], 10.0),
-      10: _extractNumericValue(data['waiting10min'], 20.0),
-      15: _extractNumericValue(data['waiting15min'], 30.0),
-      20: _extractNumericValue(data['waiting20min'], 40.0),
-      25: _extractNumericValue(data['waiting25min'], 50.0),
-      30: _extractNumericValue(data['waiting30min'], 60.0),
+      5: _extractNumericValue(data['waiting5min'], 50.0),   // 5min = 50
+      10: _extractNumericValue(data['waiting10min'], 60.0), // 10min = 60
+      15: _extractNumericValue(data['waiting15min'], 70.0), // 15min = 70
+      20: _extractNumericValue(data['waiting20min'], 80.0), // 20min = 80
+      25: _extractNumericValue(data['waiting25min'], 90.0), // 25min = 90
+      30: _extractNumericValue(data['waiting30min'], 100.0), // 30min = 100
     };
     
-    debugPrint('✅ Fare data successfully set:');
-    debugPrint('📊 Base Fare: ₹${baseFareFromDB}');
-    debugPrint('⏱️ Waiting Charges: $waitingChargesFromDB');
+ 
     
-    // Recalculate waiting charge if there's accumulated time
-    if (totalWaitingSeconds > 0) {
-      _calculateWaitingCharge();
-    }
-    
-    // Force UI update to show new fare immediately
     onStatusChange?.call();
   }
 
-  // ENHANCED: Improved numeric value extraction with comprehensive error handling
+  // Extract numeric value from MongoDB Extended JSON
   double _extractNumericValue(dynamic value, double defaultValue) {
     debugPrint('Extracting numeric value from: $value (type: ${value.runtimeType})');
     
@@ -104,13 +97,11 @@ class RideController {
       return defaultValue;
     }
     
-    // If it's already a number
     if (value is num) {
       debugPrint('✅ Value is already a number: ${value.toDouble()}');
       return value.toDouble();
     }
     
-    // If it's a string representation of number
     if (value is String) {
       final parsed = double.tryParse(value);
       if (parsed != null) {
@@ -122,15 +113,12 @@ class RideController {
       }
     }
     
-    // ENHANCED: Handle MongoDB Extended JSON object with detailed logging
+    // Handle MongoDB Extended JSON
     if (value is Map<String, dynamic>) {
       debugPrint('🔍 Processing MongoDB Extended JSON: $value');
       
-      // Handle $numberInt
       if (value.containsKey('\$numberInt')) {
         final numberIntValue = value['\$numberInt'];
-        debugPrint('📝 Found \$numberInt: $numberIntValue (type: ${numberIntValue.runtimeType})');
-        
         if (numberIntValue is String) {
           final parsed = double.tryParse(numberIntValue);
           if (parsed != null) {
@@ -141,15 +129,10 @@ class RideController {
           debugPrint('✅ \$numberInt is already a number: ${numberIntValue.toDouble()}');
           return numberIntValue.toDouble();
         }
-        debugPrint('❌ Failed to parse \$numberInt, using default: $defaultValue');
-        return defaultValue;
       }
       
-      // Handle $numberLong
       if (value.containsKey('\$numberLong')) {
         final numberLongValue = value['\$numberLong'];
-        debugPrint('📝 Found \$numberLong: $numberLongValue (type: ${numberLongValue.runtimeType})');
-        
         if (numberLongValue is String) {
           final parsed = double.tryParse(numberLongValue);
           if (parsed != null) {
@@ -160,15 +143,10 @@ class RideController {
           debugPrint('✅ \$numberLong is already a number: ${numberLongValue.toDouble()}');
           return numberLongValue.toDouble();
         }
-        debugPrint('❌ Failed to parse \$numberLong, using default: $defaultValue');
-        return defaultValue;
       }
       
-      // Handle $numberDouble
       if (value.containsKey('\$numberDouble')) {
         final numberDoubleValue = value['\$numberDouble'];
-        debugPrint('📝 Found \$numberDouble: $numberDoubleValue (type: ${numberDoubleValue.runtimeType})');
-        
         if (numberDoubleValue is String) {
           final parsed = double.tryParse(numberDoubleValue);
           if (parsed != null) {
@@ -179,11 +157,7 @@ class RideController {
           debugPrint('✅ \$numberDouble is already a number: ${numberDoubleValue.toDouble()}');
           return numberDoubleValue.toDouble();
         }
-        debugPrint('❌ Failed to parse \$numberDouble, using default: $defaultValue');
-        return defaultValue;
       }
-      
-      debugPrint('❌ No recognized MongoDB numeric field found in: $value');
     }
     
     debugPrint('❌ Could not extract numeric value from: $value (type: ${value.runtimeType}), using default: $defaultValue');
@@ -292,182 +266,43 @@ class RideController {
     return true;
   }
 
-  // NEW: Enhanced waiting timer with real-time fare updates and cumulative tracking
-  void toggleWaitingTimer() {
-    if (isWaitingTimerActive) {
-      // Stop waiting timer
-      isWaitingTimerActive = false;
-      waitingTimer?.cancel();
-      
-      debugPrint('⏸️ Waiting timer stopped. Session time: ${currentSessionWaitingSeconds}s, Total: ${totalWaitingSeconds}s');
-      onShowSnackBar?.call('Waiting timer stopped - Total: ${getTotalWaitingTimeDisplay()}', true);
-    } else {
-      // Start waiting timer (adds to existing time)
-      isWaitingTimerActive = true;
-      currentSessionWaitingSeconds = 0; // Reset current session
-      
-      // Timer runs every second with real-time fare updates
-      waitingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-        currentSessionWaitingSeconds++;
-        totalWaitingSeconds++;
-        
-        // Calculate and update waiting charge in real-time
-        _calculateWaitingCharge();
-        
-        // Show progress every 30 seconds
-        if (totalWaitingSeconds % 30 == 0) {
-          debugPrint('⏰ Waiting timer: ${getTotalWaitingTimeDisplay()} - Charge: ₹${waitingCharge.toStringAsFixed(2)}');
-          onShowSnackBar?.call('Waiting: ${getTotalWaitingTimeDisplay()} - ₹${waitingCharge.toStringAsFixed(2)}', true);
-        }
-        
-        onStatusChange?.call(); // Update UI every second
-      });
-      
-      debugPrint('▶️ Waiting timer started. Previous total: ${totalWaitingSeconds - currentSessionWaitingSeconds}s');
-      onShowSnackBar?.call('Waiting timer started', true);
-    }
-    onStatusChange?.call();
-  }
-
-  // FIXED: Completely rewritten progressive waiting charge calculation
-  void _calculateWaitingCharge() {
-    if (totalWaitingSeconds <= 0) {
-      waitingCharge = 0.0;
-      return;
-    }
-    
-    // Convert seconds to minutes for calculation
-    double totalMinutes = totalWaitingSeconds / 60.0;
-    double newCharge = 0.0;
-    
-    // Get sorted tier minutes for progression
-    List<int> sortedTiers = waitingChargesFromDB.keys.toList()..sort();
-    
-    // Find which tier bracket we're in and calculate progressive charge
-    for (int i = 0; i < sortedTiers.length; i++) {
-      int currentTier = sortedTiers[i]; // minutes
-      double currentTierCharge = waitingChargesFromDB[currentTier] ?? 0.0;
-      
-      if (totalMinutes <= currentTier) {
-        // We're within this tier - calculate proportional charge
-        if (i == 0) {
-          // First tier: 0 to currentTier minutes
-          double ratePerMinute = currentTierCharge / currentTier;
-          newCharge = totalMinutes * ratePerMinute;
-        } else {
-          // Subsequent tiers: from previous tier to current tier
-          int previousTier = sortedTiers[i - 1];
-          double previousTierCharge = waitingChargesFromDB[previousTier] ?? 0.0;
-          
-          double tierDuration = (currentTier - previousTier).toDouble();
-          double tierChargeDifference = currentTierCharge - previousTierCharge;
-          double ratePerMinute = tierChargeDifference / tierDuration;
-          
-          // Add previous tier charge + proportional charge for current tier
-          double minutesIntoTier = totalMinutes - previousTier;
-          newCharge = previousTierCharge + (minutesIntoTier * ratePerMinute);
-        }
-        break;
-      } else if (i == sortedTiers.length - 1) {
-        // Beyond last tier - extrapolate at same rate as last segment
-        int previousTier = i > 0 ? sortedTiers[i - 1] : 0;
-        double previousTierCharge = i > 0 ? (waitingChargesFromDB[previousTier] ?? 0.0) : 0.0;
-        
-        double tierDuration = (currentTier - previousTier).toDouble();
-        double tierChargeDifference = currentTierCharge - previousTierCharge;
-        double ratePerMinute = tierChargeDifference / tierDuration;
-        
-        // Calculate charge beyond last tier
-        double extraMinutes = totalMinutes - currentTier;
-        newCharge = currentTierCharge + (extraMinutes * ratePerMinute);
-        break;
-      }
-    }
-    
-    waitingCharge = newCharge;
-    debugPrint('💰 Waiting charge updated: ₹${waitingCharge.toStringAsFixed(2)} for ${totalWaitingSeconds}s (${getTotalWaitingTimeDisplay()}) = ${totalMinutes.toStringAsFixed(2)} minutes');
-  }
-
-  // Ride Control Methods
+  // Start ride
   Future<bool> startRide() async {
     bool hasPermission = await requestLocationPermission();
     if (!hasPermission) return false;
 
     isMeterOn = true;
     isRidePaused = false;
+    currentFare = 0.0; // Start with 0
+    distance = 0.0;
+    waitingSeconds = 0;
+    totalWaitingFare = 0.0;
+    isVehicleMoving = true; // Start assuming vehicle is moving
     tripStartTime = DateTime.now();
     _startMeter();
     onStatusChange?.call();
     return true;
   }
 
-  void stopRide() {
-    isRidePaused = true;
-    tripEndTime = DateTime.now();
-    meterTimer?.cancel();
-    locationTimer?.cancel();
-    
-    // Keep waiting timer active if it's running
-    // Don't stop waiting timer here - let user control it
-    
-    onStatusChange?.call();
-  }
-
-  void completeRide() {
+  // End ride (complete directly)
+  void endRide() {
     isMeterOn = false;
     isRidePaused = false;
     tripEndTime = DateTime.now();
     meterTimer?.cancel();
     locationTimer?.cancel();
-    
-    // Stop waiting timer when ride is completed
-    if (isWaitingTimerActive) {
-      isWaitingTimerActive = false;
-      waitingTimer?.cancel();
-    }
-    
+    waitingTimer?.cancel();
     onStatusChange?.call();
-  }
-
-  void cancelRide() {
-    meterTimer?.cancel();
-    locationTimer?.cancel();
-    gpsMonitorTimer?.cancel();
-    
-    // Cancel waiting timer
-    if (isWaitingTimerActive) {
-      isWaitingTimerActive = false;
-      waitingTimer?.cancel();
-    }
-    
-    resetMeter();
-    
-    isMeterOn = false;
-    isRidePaused = false;
-    onStatusChange?.call();
-  }
-
-  void resumeRide() {
-    if (isMeterOn && isRidePaused) {
-      isRidePaused = false;
-      tripEndTime = null;
-      _startMeter();
-      debugPrint('Ride resumed');
-      onShowSnackBar?.call('Ride resumed', true);
-    }
   }
 
   void resetMeter() {
     distance = 0.0;
     totalDistanceTravelled = 0.0;
     secondsPassed = 0;
-    fare = baseFareFromDB;
-    waitingCharge = 0.0;
-    totalWaitingSeconds = 0; // NEW: Reset total waiting time
-    currentSessionWaitingSeconds = 0; // NEW: Reset session time
+    currentFare = 0.0;
     waitingSeconds = 0;
-    isWaitingTimerActive = false;
-    isMoving = false;
+    totalWaitingFare = 0.0;
+    isVehicleMoving = false;
     isRidePaused = false;
     lastPosition = null;
     currentPosition = null;
@@ -482,6 +317,7 @@ class RideController {
     
     if (isRidePaused) return;
     
+    // Timer for seconds counting
     meterTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (!isMeterOn || isRidePaused) return;
       
@@ -489,6 +325,7 @@ class RideController {
       onStatusChange?.call();
     });
 
+    // Timer for location updates
     locationTimer = Timer.periodic(Duration(seconds: locationUpdateInterval), (timer) async {
       if (!isMeterOn || isRidePaused) return;
       await _updateLocation();
@@ -528,15 +365,26 @@ class RideController {
         );
 
         if (distanceInMeters >= movementThreshold && newPosition.accuracy <= 20) {
-          isMoving = true;
+          // Vehicle is moving
+          if (!isVehicleMoving) {
+            isVehicleMoving = true;
+            _stopWaitingTimer();
+            debugPrint('🚗 Vehicle started moving');
+          }
+          
           double distanceInKm = distanceInMeters / 1000;
           distance += distanceInKm;
           totalDistanceTravelled += distanceInKm;
-          updateFare();
+          _updateFareForDistance();
           lastPosition = newPosition;
           onStatusChange?.call();
         } else {
-          isMoving = false;
+          // Vehicle is not moving
+          if (isVehicleMoving) {
+            isVehicleMoving = false;
+            _startWaitingTimer();
+            debugPrint('⏸️ Vehicle stopped moving');
+          }
           onStatusChange?.call();
         }
 
@@ -555,14 +403,125 @@ class RideController {
     }
   }
 
-  void updateFare() {
-    if (distance <= 1.0) {
-      fare = baseFareFromDB;
-    } else {
-      double extraDistance = distance - 1.0;
-      fare = baseFareFromDB + (extraDistance * 18.0);
+  // Start waiting timer when vehicle stops
+  void _startWaitingTimer() {
+    waitingTimer?.cancel();
+    waitingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (!isMeterOn || isVehicleMoving) {
+        timer.cancel();
+        return;
+      }
+      
+      waitingSeconds++;
+      
+      // **PROGRESSIVE WAITING CALCULATION**: Calculate based on time brackets
+      totalWaitingFare = _calculateProgressiveWaitingFare();
+      
+      // Update current fare with new waiting charges
+      _updateCurrentFareWithWaiting();
+      
+      debugPrint('⏱️ Waiting: ${waitingSeconds}s (${getWaitingTimeDisplay()}), Waiting Fare: ₹${totalWaitingFare.toStringAsFixed(2)}, Current Fare: ₹${currentFare.toStringAsFixed(2)}');
+      onStatusChange?.call();
+    });
+  }
+
+  // **NEW PROGRESSIVE WAITING FARE CALCULATION**
+  double _calculateProgressiveWaitingFare() {
+    if (waitingSeconds <= 0) return 0.0;
+    
+    // Convert seconds to minutes
+    double totalMinutes = waitingSeconds / 60.0;
+    
+    // Get sorted time brackets
+    List<int> sortedBrackets = waitingChargesFromDB.keys.toList()..sort();
+    
+    // Progressive calculation based on time brackets
+    double calculatedFare = 0.0;
+    
+    for (int i = 0; i < sortedBrackets.length; i++) {
+      int currentBracket = sortedBrackets[i]; // Current bracket in minutes
+      double currentBracketFare = waitingChargesFromDB[currentBracket]!;
+      
+      if (totalMinutes <= currentBracket) {
+        // We're within this bracket
+        if (i == 0) {
+          // First bracket (0 to currentBracket minutes)
+          double ratePerMinute = currentBracketFare / currentBracket;
+          calculatedFare = totalMinutes * ratePerMinute;
+        } else {
+          // Subsequent brackets
+          int previousBracket = sortedBrackets[i - 1];
+          double previousBracketFare = waitingChargesFromDB[previousBracket]!;
+          
+          // Calculate rate for this bracket segment
+          double bracketDuration = (currentBracket - previousBracket).toDouble();
+          double bracketFareDifference = currentBracketFare - previousBracketFare;
+          double ratePerMinute = bracketFareDifference / bracketDuration;
+          
+          // Add previous bracket fare + proportional fare for current bracket
+          double minutesInCurrentBracket = totalMinutes - previousBracket;
+          calculatedFare = previousBracketFare + (minutesInCurrentBracket * ratePerMinute);
+        }
+        break;
+      } else if (i == sortedBrackets.length - 1) {
+        // Beyond the last bracket - use the last bracket rate
+        int previousBracket = i > 0 ? sortedBrackets[i - 1] : 0;
+        double previousBracketFare = i > 0 ? waitingChargesFromDB[previousBracket]! : 0.0;
+        
+        double bracketDuration = (currentBracket - previousBracket).toDouble();
+        double bracketFareDifference = currentBracketFare - previousBracketFare;
+        double ratePerMinute = bracketFareDifference / bracketDuration;
+        
+        // Calculate fare beyond last bracket
+        double extraMinutes = totalMinutes - currentBracket;
+        calculatedFare = currentBracketFare + (extraMinutes * ratePerMinute);
+        break;
+      }
     }
-    debugPrint('💰 Fare updated: Base=₹${baseFareFromDB}, Distance=${distance.toStringAsFixed(2)}km, Total=₹${fare.toStringAsFixed(2)}');
+    
+    debugPrint('📊 Progressive Waiting Calculation: ${totalMinutes.toStringAsFixed(2)} minutes = ₹${calculatedFare.toStringAsFixed(2)}');
+    return calculatedFare;
+  }
+
+  // Stop waiting timer when vehicle moves
+  void _stopWaitingTimer() {
+    waitingTimer?.cancel();
+  }
+
+  // Update current fare with waiting charges included
+  void _updateCurrentFareWithWaiting() {
+    double baseFare = 0.0;
+    double distanceFare = 0.0;
+    
+    if (distance >= 1.0) {
+      // After 1km, add base fare + extra distance charges
+      baseFare = baseFareFromDB;
+      double extraDistance = distance - 1.0;
+      distanceFare = extraDistance * perKmRateFromDB;
+    }
+    
+    // Current fare = base fare + distance fare + waiting fare
+    currentFare = baseFare + distanceFare + totalWaitingFare;
+    
+    debugPrint('💰 Current Fare Updated: Base=₹${baseFare.toStringAsFixed(2)}, Distance=₹${distanceFare.toStringAsFixed(2)}, Waiting=₹${totalWaitingFare.toStringAsFixed(2)}, Total=₹${currentFare.toStringAsFixed(2)}');
+  }
+
+  // Update fare based on distance only
+  void _updateFareForDistance() {
+    double baseFare = 0.0;
+    double distanceFare = 0.0;
+    
+    if (distance >= 1.0) {
+      // After 1km, add base fare + extra distance charges
+      baseFare = baseFareFromDB;
+      double extraDistance = distance - 1.0;
+      distanceFare = extraDistance * perKmRateFromDB;
+    }
+    
+    // Current fare = base fare + distance fare + accumulated waiting fare
+    currentFare = baseFare + distanceFare + totalWaitingFare;
+    
+    debugPrint('💰 Distance Fare Updated: Distance=${distance.toStringAsFixed(3)}km, Base=₹${baseFare.toStringAsFixed(2)}, Distance=₹${distanceFare.toStringAsFixed(2)}, Current Fare=₹${currentFare.toStringAsFixed(2)}');
   }
 
   // Get formatted trip times
@@ -576,24 +535,10 @@ class RideController {
     return '${tripEndTime!.hour.toString().padLeft(2, '0')}:${tripEndTime!.minute.toString().padLeft(2, '0')}';
   }
 
-  // NEW: Get current session waiting timer display
-  String getCurrentSessionWaitingDisplay() {
-    if (!isWaitingTimerActive) return '00:00';
-    int minutes = currentSessionWaitingSeconds ~/ 60;
-    int seconds = currentSessionWaitingSeconds % 60;
+  String getWaitingTimeDisplay() {
+    int minutes = waitingSeconds ~/ 60;
+    int seconds = waitingSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  // NEW: Get total accumulated waiting time display
-  String getTotalWaitingTimeDisplay() {
-    int minutes = totalWaitingSeconds ~/ 60;
-    int seconds = totalWaitingSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  // FIXED: Keep the original method for backward compatibility
-  String getWaitingTimerDisplay() {
-    return getTotalWaitingTimeDisplay();
   }
 
   // Utility Methods
@@ -608,12 +553,12 @@ class RideController {
   String getMovementStatus() {
     if (!isMeterOn) return 'Ready to Start';
     if (isRidePaused) return 'Ride Paused';
-    return isMoving ? 'On Trip' : 'Waiting';
+    return isVehicleMoving ? 'Moving' : 'Waiting';
   }
 
   Color getStatusColor() {
     if (!isMeterOn) return Color(0xFF9CA3AF);
     if (isRidePaused) return Color(0xFFEF4444);
-    return isMoving ? Color(0xFF00B562) : Color(0xFFD97706);
+    return isVehicleMoving ? Color(0xFF00B562) : Color(0xFFD97706);
   }
 }

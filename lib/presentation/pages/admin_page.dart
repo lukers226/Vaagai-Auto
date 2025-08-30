@@ -174,7 +174,7 @@ class AdminPageState extends State<AdminPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Vaagai Auto',
+          'Vaagai Meter Auto',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             color: Colors.black,

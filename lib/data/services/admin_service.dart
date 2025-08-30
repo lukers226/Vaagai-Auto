@@ -1,9 +1,17 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:vaagaiauto/core/constants/api_constants.dart';
 
 class AdminService {
+  // Helper method for debug logging that only works in debug mode
+  static void _debugLog(String message) {
+    if (kDebugMode) {
+      debugPrint('AdminService: $message');
+    }
+  }
+
   // Cache busting helper
   static String _addCacheBuster(String url) {
     final random = Random().nextInt(999999);
@@ -27,8 +35,8 @@ class AdminService {
         'password': password,
       });
 
-      print('🔵 Updating admin profile at: $url');
-      print('🔵 Request body: $body');
+      _debugLog('🔵 Updating admin profile at: $url');
+      _debugLog('🔵 Request body: $body');
 
       final response = await http.put(
         url,
@@ -42,12 +50,12 @@ class AdminService {
         body: body,
       );
 
-      print('🟢 Response status: ${response.statusCode}');
-      print('🟢 Response headers: ${response.headers}');
-      print('🟢 Response body: "${response.body}"');
+      _debugLog('🟢 Response status: ${response.statusCode}');
+      _debugLog('🟢 Response headers: ${response.headers}');
+      _debugLog('🟢 Response body: "${response.body}"');
 
-      // Handle empty response body
       if (response.body.isEmpty) {
+        _debugLog('🔴 Empty response body received');
         return {
           'success': false,
           'message': 'Server returned empty response. Status: ${response.statusCode}',
@@ -59,7 +67,7 @@ class AdminService {
       try {
         responseData = jsonDecode(response.body);
       } catch (e) {
-        print('🔴 JSON decode error: $e');
+        _debugLog('🔴 JSON decode error: $e');
         return {
           'success': false,
           'message': 'Invalid response format from server',
@@ -67,18 +75,20 @@ class AdminService {
       }
 
       if (response.statusCode == 200) {
+        _debugLog('✅ Admin profile updated successfully');
         return {
           'success': true,
           'data': responseData['data'] ?? responseData,
         };
       } else {
+        _debugLog('❌ Update failed with status: ${response.statusCode}');
         return {
           'success': false,
           'message': responseData['message'] ?? 'Update failed (Status: ${response.statusCode})',
         };
       }
     } catch (e) {
-      print('🔴 Error in updateAdminProfile: $e');
+      _debugLog('🔴 Error in updateAdminProfile: $e');
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
@@ -92,7 +102,7 @@ class AdminService {
       final urlWithCacheBuster = _addCacheBuster(baseUrl);
       final url = Uri.parse(urlWithCacheBuster);
 
-      print('🔵 Getting admin profile from: $url');
+      _debugLog('🔵 Getting admin profile from: $url');
 
       final response = await http.get(
         url,
@@ -105,12 +115,13 @@ class AdminService {
         },
       );
 
-      print('🟢 Response status: ${response.statusCode}');
-      print('🟢 Response headers: ${response.headers}');
-      print('🟢 Response body: "${response.body}"');
+      _debugLog('🟢 Response status: ${response.statusCode}');
+      _debugLog('🟢 Response headers: ${response.headers}');
+      _debugLog('🟢 Response body: "${response.body}"');
 
       // Handle empty response body
       if (response.body.isEmpty) {
+        _debugLog('🔴 Empty response body received');
         return {
           'success': false,
           'message': 'Server returned empty response. Status: ${response.statusCode}',
@@ -122,7 +133,7 @@ class AdminService {
       try {
         responseData = jsonDecode(response.body);
       } catch (e) {
-        print('🔴 JSON decode error: $e');
+        _debugLog('🔴 JSON decode error: $e');
         return {
           'success': false,
           'message': 'Invalid response format from server',
@@ -130,18 +141,20 @@ class AdminService {
       }
 
       if (response.statusCode == 200) {
+        _debugLog('✅ Admin profile fetched successfully');
         return {
           'success': true,
           'data': responseData['data'] ?? responseData,
         };
       } else {
+        _debugLog('❌ Failed to fetch profile with status: ${response.statusCode}');
         return {
           'success': false,
           'message': responseData['message'] ?? 'Failed to fetch profile (Status: ${response.statusCode})',
         };
       }
     } catch (e) {
-      print('🔴 Error in getAdminProfile: $e');
+      _debugLog('🔴 Error in getAdminProfile: $e');
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
@@ -153,23 +166,26 @@ class AdminService {
   static Future<Map<String, dynamic>> testBackend() async {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/test');
-      print('🔵 Testing backend at: $url');
+      _debugLog('🔵 Testing backend at: $url');
 
       final response = await http.get(url);
-      print('🟢 Test response: ${response.statusCode} - ${response.body}');
+      _debugLog('🟢 Test response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
+        _debugLog('✅ Backend test successful');
         return {
           'success': true,
           'data': jsonDecode(response.body),
         };
       } else {
+        _debugLog('❌ Backend test failed with status: ${response.statusCode}');
         return {
           'success': false,
           'message': 'Test failed with status: ${response.statusCode}',
         };
       }
     } catch (e) {
+      _debugLog('🔴 Backend test error: $e');
       return {
         'success': false,
         'message': 'Test error: $e',

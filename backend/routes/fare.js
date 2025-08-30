@@ -27,17 +27,12 @@ router.post('/initialize', async (req, res) => {
       });
     }
 
-    // Create default system fare
+    // Create default system fare with new structure
     const defaultFareData = {
       adminId: new mongoose.Types.ObjectId(),
       baseFare: 25,           // Default base fare ₹25
       perKmRate: 10,          // Default ₹10 per km
-      waiting5min: 5,         // Default waiting charges
-      waiting10min: 10,
-      waiting15min: 15,
-      waiting20min: 20,
-      waiting25min: 25,
-      waiting30min: 30,
+      waiting60min: 60,       // Default waiting charge for 60 minutes
       isSystemDefault: true,
       isActive: true
     };
@@ -76,12 +71,7 @@ router.post('/', async (req, res) => {
     const {
       baseFare,
       perKmRate,
-      waiting5min = 0,
-      waiting10min = 0,
-      waiting15min = 0,
-      waiting20min = 0,
-      waiting25min = 0,
-      waiting30min = 0
+      waiting60min = 0
     } = req.body;
 
     // Validate required fields
@@ -123,12 +113,7 @@ router.post('/', async (req, res) => {
       
       fare.baseFare = Number(baseFare);
       fare.perKmRate = Number(perKmRate);
-      fare.waiting5min = Number(waiting5min);
-      fare.waiting10min = Number(waiting10min);
-      fare.waiting15min = Number(waiting15min);
-      fare.waiting20min = Number(waiting20min);
-      fare.waiting25min = Number(waiting25min);
-      fare.waiting30min = Number(waiting30min);
+      fare.waiting60min = Number(waiting60min);
 
       const savedFare = await fare.save();
       console.log('System fare updated successfully:', savedFare._id);
@@ -146,12 +131,7 @@ router.post('/', async (req, res) => {
         adminId: adminId,
         baseFare: Number(baseFare),
         perKmRate: Number(perKmRate),
-        waiting5min: Number(waiting5min),
-        waiting10min: Number(waiting10min),
-        waiting15min: Number(waiting15min),
-        waiting20min: Number(waiting20min),
-        waiting25min: Number(waiting25min),
-        waiting30min: Number(waiting30min),
+        waiting60min: Number(waiting60min),
         isSystemDefault: true,
         isActive: true
       };
@@ -202,17 +182,12 @@ router.get('/', async (req, res) => {
     if (!fare) {
       console.log('⚠️ No system fare found, creating default...');
       
-      // Auto-create default system fare
+      // Auto-create default system fare with new structure
       const defaultFareData = {
         adminId: new mongoose.Types.ObjectId(),
         baseFare: 25,
         perKmRate: 10,
-        waiting5min: 5,
-        waiting10min: 10,
-        waiting15min: 15,
-        waiting20min: 20,
-        waiting25min: 25,
-        waiting30min: 30,
+        waiting60min: 60,
         isSystemDefault: true,
         isActive: true
       };
@@ -266,12 +241,7 @@ router.post('/calculate', async (req, res) => {
         adminId: new mongoose.Types.ObjectId(),
         baseFare: 25,
         perKmRate: 10,
-        waiting5min: 5,
-        waiting10min: 10,
-        waiting15min: 15,
-        waiting20min: 20,
-        waiting25min: 25,
-        waiting30min: 30,
+        waiting60min: 60,
         isSystemDefault: true,
         isActive: true
       };
@@ -285,20 +255,12 @@ router.post('/calculate', async (req, res) => {
     const baseFare = fare.baseFare;
     const distanceFare = Number(distance) * fare.perKmRate;
     
-    // Calculate waiting charges
+    // Calculate waiting charges - simplified logic for 60-minute intervals
     let waitingCharge = 0;
-    if (waitingMinutes >= 30) {
-      waitingCharge = fare.waiting30min;
-    } else if (waitingMinutes >= 25) {
-      waitingCharge = fare.waiting25min;
-    } else if (waitingMinutes >= 20) {
-      waitingCharge = fare.waiting20min;
-    } else if (waitingMinutes >= 15) {
-      waitingCharge = fare.waiting15min;
-    } else if (waitingMinutes >= 10) {
-      waitingCharge = fare.waiting10min;
-    } else if (waitingMinutes >= 5) {
-      waitingCharge = fare.waiting5min;
+    if (waitingMinutes > 0) {
+      // Calculate how many 60-minute intervals (or fraction thereof)
+      const intervals = Math.ceil(waitingMinutes / 60);
+      waitingCharge = intervals * fare.waiting60min;
     }
 
     const totalFare = baseFare + distanceFare + waitingCharge;
@@ -362,6 +324,7 @@ router.get('/debug/test', async (req, res) => {
       documentCount: count,
       systemFare: fareDoc,
       hasPerKmRate: fareDoc ? (fareDoc.perKmRate !== undefined) : false,
+      hasWaiting60min: fareDoc ? (fareDoc.waiting60min !== undefined) : false,
       collections: collections.map(col => col.name)
     });
   } catch (error) {

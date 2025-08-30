@@ -195,9 +195,9 @@ const validateUserId = (req, res, next) => {
   next();
 };
 
-// NEW: Validate fare data
+// UPDATED: Validate fare data - simplified for single waiting field
 const validateFareData = (req, res, next) => {
-  const { baseFare, perKmRate } = req.body;
+  const { baseFare, perKmRate, waiting60min } = req.body;
   
   // Validate base fare
   if (!baseFare && baseFare !== 0) {
@@ -243,32 +243,26 @@ const validateFareData = (req, res, next) => {
     });
   }
   
-  // Validate waiting charges (optional fields)
-  const waitingFields = ['waiting5min', 'waiting10min', 'waiting15min', 'waiting20min', 'waiting25min', 'waiting30min'];
-  
-  for (const field of waitingFields) {
-    const value = req.body[field];
-    if (value !== undefined && value !== null) {
-      if (typeof value !== 'number' || value < 0) {
-        return res.status(400).json({
-          success: false,
-          message: `${field} must be a non-negative number`
-        });
-      }
-      
-      if (value > 1000) {
-        return res.status(400).json({
-          success: false,
-          message: `${field} seems too high (max: ₹1,000)`
-        });
-      }
+  // Validate waiting charge (optional field)
+  if (waiting60min !== undefined && waiting60min !== null) {
+    if (typeof waiting60min !== 'number' || waiting60min < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'waiting60min must be a non-negative number'
+      });
+    }
+    
+    if (waiting60min > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: 'waiting60min seems too high (max: ₹1,000)'
+      });
     }
   }
   
   next();
 };
 
-// NEW: Validate fare calculation data
 const validateFareCalculation = (req, res, next) => {
   const { distance, waitingMinutes } = req.body;
   
@@ -386,5 +380,5 @@ module.exports = {
   validateUserId,
   validateFareData,
   validateFareCalculation,
-  validateAdminProfileUpdate  // NEW
+  validateAdminProfileUpdate
 };
