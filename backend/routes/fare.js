@@ -9,14 +9,96 @@ router.use((req, res, next) => {
   next();
 });
 
+// @route   POST /api/fares/migrate
+// @desc    ONE-TIME MIGRATION: Add waiting60min field to existing documents
+// @access  Public (call once after deployment)
+router.post('/migrate', async (req, res) => {
+  try {
+    console.log('🚀 Starting migration to add waiting60min field...');
+    
+    // Use raw MongoDB operations to bypass Mongoose schema validation
+    const db = mongoose.connection.db;
+    const collection = db.collection('fares');
+
+    // Check existing documents
+    const totalDocs = await collection.countDocuments();
+    const docsWithoutWaiting60min = await collection.countDocuments({
+      waiting60min: { $exists: false }
+    });
+
+    console.log(`📊 Total documents: ${totalDocs}`);
+    console.log(`📊 Documents missing waiting60min field: ${docsWithoutWaiting60min}`);
+
+    if (docsWithoutWaiting60min > 0) {
+      // Add waiting60min field and remove old waiting fields
+      const result = await collection.updateMany(
+        { waiting60min: { $exists: false } },
+        { 
+          $set: { waiting60min: 60 }, // Default to 60 for existing documents
+          $unset: { 
+            // Remove old waiting time fields if they exist
+            waiting5min: "",
+            waiting10min: "",
+            waiting15min: "",
+            waiting20min: "",
+            waiting25min: "",
+            waiting30min: ""
+          }
+        }
+      );
+
+      console.log(`✅ Migration completed!`);
+      console.log(`   - Matched documents: ${result.matchedCount}`);
+      console.log(`   - Modified documents: ${result.modifiedCount}`);
+
+      // Verify migration
+      const updatedCount = await collection.countDocuments({
+        waiting60min: { $exists: true }
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Migration completed successfully',
+        data: {
+          totalDocuments: totalDocs,
+          documentsUpdated: result.modifiedCount,
+          documentsWithWaiting60min: updatedCount,
+          migrationDetails: {
+            matchedCount: result.matchedCount,
+            modifiedCount: result.modifiedCount
+          }
+        }
+      });
+    } else {
+      console.log('✅ All documents already have waiting60min field');
+      
+      return res.status(200).json({
+        success: true,
+        message: 'No migration needed - all documents already have waiting60min field',
+        data: {
+          totalDocuments: totalDocs,
+          documentsWithWaiting60min: totalDocs
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
 // @route   POST /api/fares/initialize
 // @desc    Initialize fare collection with default system fare
-// @access  Public (call once after deployment)
+// @access  Public
 router.post('/initialize', async (req, res) => {
   try {
     console.log('🚀 Initializing fare collection...');
     
-    // Check if system fare already exists
     const existingFare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     
     if (existingFare) {
@@ -27,27 +109,23 @@ router.post('/initialize', async (req, res) => {
       });
     }
 
-    // Create default system fare with new structure
     const defaultFareData = {
       adminId: new mongoose.Types.ObjectId(),
-      baseFare: 25,           // Default base fare ₹25
-      perKmRate: 10,          // Default ₹10 per km
-      waiting60min: 60,       // Default waiting charge for 60 minutes
+      baseFare: 25,
+      perKmRate: 10,
+      waiting60min: 60,
       isSystemDefault: true,
       isActive: true
     };
-
-    console.log('Creating default system fare:', defaultFareData);
 
     const newFare = new Fare(defaultFareData);
     const savedFare = await newFare.save();
 
     console.log('✅ Default system fare created successfully:', savedFare._id);
-    console.log('✅ Fares collection created in MongoDB Atlas');
 
     return res.status(201).json({
       success: true,
-      message: 'Fare collection initialized successfully with default system fare',
+      message: 'Fare collection initialized successfully',
       data: savedFare
     });
 
@@ -68,15 +146,10 @@ router.post('/', async (req, res) => {
   console.log('POST /api/fares called with body:', req.body);
   
   try {
-    const {
-      baseFare,
-      perKmRate,
-      waiting60min = 0
-    } = req.body;
+    const { baseFare, perKmRate, waiting60min = 60 } = req.body;
 
-    // Validate required fields
+    // Validation
     if (!baseFare || baseFare <= 0) {
-      console.log('Validation failed: Invalid baseFare');
       return res.status(400).json({
         success: false,
         message: 'Base fare is required and must be greater than 0'
@@ -84,7 +157,6 @@ router.post('/', async (req, res) => {
     }
 
     if (!perKmRate || perKmRate <= 0) {
-      console.log('Validation failed: Invalid perKmRate');
       return res.status(400).json({
         success: false,
         message: 'Per kilometer rate is required and must be greater than 0'
@@ -92,7 +164,6 @@ router.post('/', async (req, res) => {
     }
 
     if (perKmRate > 1000) {
-      console.log('Validation failed: perKmRate too high');
       return res.status(400).json({
         success: false,
         message: 'Per kilometer rate cannot exceed ₹1000'
@@ -101,11 +172,9 @@ router.post('/', async (req, res) => {
 
     console.log('Looking for existing system fare...');
     
-    // Check if system fare already exists
+    // Since you have only single collection (admin-based), find or create
     let fare = await Fare.findOne({ isSystemDefault: true, isActive: true });
     console.log('Existing system fare found:', fare ? 'Yes' : 'No');
-
-    const adminId = new mongoose.Types.ObjectId();
 
     if (fare) {
       // Update existing system fare
@@ -124,11 +193,11 @@ router.post('/', async (req, res) => {
         data: savedFare
       });
     } else {
-      // Create new system fare (this will create the collection)
+      // Create new system fare (single admin-based fare)
       console.log('Creating new system fare');
       
       const newFareData = {
-        adminId: adminId,
+        adminId: new mongoose.Types.ObjectId(),
         baseFare: Number(baseFare),
         perKmRate: Number(perKmRate),
         waiting60min: Number(waiting60min),
@@ -141,7 +210,6 @@ router.post('/', async (req, res) => {
       fare = new Fare(newFareData);
       const savedFare = await fare.save();
       console.log('System fare created successfully:', savedFare._id);
-      console.log('✅ Fares collection created in MongoDB Atlas');
 
       return res.status(201).json({
         success: true,
@@ -196,7 +264,6 @@ router.get('/', async (req, res) => {
       await fare.save();
       
       console.log('✅ Default system fare created automatically');
-      console.log('✅ Fares collection created in MongoDB Atlas');
     }
 
     return res.status(200).json({
@@ -255,10 +322,9 @@ router.post('/calculate', async (req, res) => {
     const baseFare = fare.baseFare;
     const distanceFare = Number(distance) * fare.perKmRate;
     
-    // Calculate waiting charges - simplified logic for 60-minute intervals
+    // Calculate waiting charges - charge per 60-minute interval
     let waitingCharge = 0;
     if (waitingMinutes > 0) {
-      // Calculate how many 60-minute intervals (or fraction thereof)
       const intervals = Math.ceil(waitingMinutes / 60);
       waitingCharge = intervals * fare.waiting60min;
     }

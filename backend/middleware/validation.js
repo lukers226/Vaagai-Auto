@@ -85,7 +85,7 @@ const validateUpdateRide = (req, res, next) => {
   next();
 };
 
-// NEW: Validate ride completion data
+// Validate ride completion data
 const validateRideCompletion = (req, res, next) => {
   const { rideEarnings, tripData } = req.body;
   
@@ -165,7 +165,7 @@ const validateRideCompletion = (req, res, next) => {
   next();
 };
 
-// NEW: Validate user ID parameter
+// Validate user ID parameter
 const validateUserId = (req, res, next) => {
   const { userId, adminId } = req.params;
   const idToValidate = userId || adminId;
@@ -195,7 +195,7 @@ const validateUserId = (req, res, next) => {
   next();
 };
 
-// UPDATED: Validate fare data - simplified for single waiting field
+// UPDATED: Validate fare data - simplified for single waiting60min field
 const validateFareData = (req, res, next) => {
   const { baseFare, perKmRate, waiting60min } = req.body;
   
@@ -243,7 +243,7 @@ const validateFareData = (req, res, next) => {
     });
   }
   
-  // Validate waiting charge (optional field)
+  // Validate waiting charge (optional field) - UPDATED for single waiting60min field
   if (waiting60min !== undefined && waiting60min !== null) {
     if (typeof waiting60min !== 'number' || waiting60min < 0) {
       return res.status(400).json({
@@ -263,6 +263,7 @@ const validateFareData = (req, res, next) => {
   next();
 };
 
+// Validate fare calculation data
 const validateFareCalculation = (req, res, next) => {
   const { distance, waitingMinutes } = req.body;
   
@@ -308,7 +309,7 @@ const validateFareCalculation = (req, res, next) => {
   next();
 };
 
-// NEW: Validate admin profile update
+// Validate admin profile update
 const validateAdminProfileUpdate = (req, res, next) => {
   const { name, password } = req.body;
 

@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
 const fareSchema = new mongoose.Schema({
-  // Remove userId requirement - make it admin-based system-wide fare
   adminId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -29,7 +28,7 @@ const fareSchema = new mongoose.Schema({
   },
   isSystemDefault: {
     type: Boolean,
-    default: true // Only one system-wide fare configuration
+    default: true
   }
 }, {
   timestamps: true,
