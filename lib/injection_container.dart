@@ -7,13 +7,13 @@ import 'presentation/bloc/driver/driver_bloc.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  // Services
-  sl.registerLazySingleton(() => ApiService());
+  
+  sl.registerLazySingleton(() => ApiService()); // Service
 
-  // Repository
-  sl.registerLazySingleton(() => AuthRepository(apiService: sl()));
+  
+  sl.registerLazySingleton(() => AuthRepository(apiService: sl())); // Repository
 
-  // BLoCs
-  sl.registerFactory(() => AuthBloc(authRepository: sl()));
+  
+  sl.registerFactory(() => AuthBloc(authRepository: sl())); //Bloc codes
   sl.registerFactory(() => DriverBloc(authRepository: sl()));
 }

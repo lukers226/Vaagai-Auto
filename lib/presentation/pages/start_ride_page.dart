@@ -845,7 +845,6 @@ Thank you for choosing Vaagai Meter Auto! 🙏''';
                           ],
                         ),
                         SizedBox(height: 20),
-                        // **ALWAYS SHOW CARDS**: Show cards regardless of ride status
                         _buildFareDisplay(),
                         SizedBox(height: 16),
                         _buildMetricsGrid(),
@@ -888,7 +887,9 @@ Thank you for choosing Vaagai Meter Auto! 🙏''';
       animation: _pulseAnimation,
       builder: (context, child) {
         return Transform.scale(
-          // **ONLY PULSE WHEN RIDE IS ACTIVE AND MOVING**
+
+          
+          // **ACTIVE AND MOVING**
           scale: (_rideController.isMeterOn && _rideController.isVehicleMoving) ? _pulseAnimation.value : 1.0,
           child: Container(
             width: double.infinity,
@@ -921,7 +922,6 @@ Thank you for choosing Vaagai Meter Auto! 🙏''';
                 ),
                 SizedBox(height: 8),
                 Text(
-                  // **SHOW REAL-TIME FARE OR ZERO WHEN NOT STARTED**
                   '₹${_rideController.isMeterOn ? _rideController.currentFare.toStringAsFixed(2) : "0.00"}',
                   style: GoogleFonts.inter(
                     fontSize: 48,
@@ -957,14 +957,12 @@ Thank you for choosing Vaagai Meter Auto! 🙏''';
             children: [
               Expanded(child: _buildMetric(
                 'Distance', 
-                // **SHOW REAL DISTANCE OR ZERO WHEN NOT STARTED**
                 _rideController.isMeterOn ? '${_rideController.formatDistance()} km' : '0.00 km', 
                 Icons.straighten
               )),
               Container(width: 1, height: 40, color: Colors.grey[300]),
               Expanded(child: _buildMetric(
                 'Base Fare', 
-                // **ALWAYS SHOW BASE FARE FROM DATABASE**
                 '₹${_rideController.baseFareFromDB.toStringAsFixed(2)}', 
                 Icons.currency_rupee
               )),
@@ -975,20 +973,20 @@ Thank you for choosing Vaagai Meter Auto! 🙏''';
             children: [
               Expanded(child: _buildMetric(
                 'Total Time', 
-                // **SHOW REAL TIME OR ZERO WHEN NOT STARTED**
+                // Real Time Showing
                 _rideController.isMeterOn ? _rideController.formatTime() : '00:00', 
                 Icons.timer
               )),
               Container(width: 1, height: 40, color: Colors.grey[300]),
               Expanded(child: _buildMetric(
                 'Status', 
-                // **SHOW REAL STATUS OR READY WHEN NOT STARTED**
+                // Real Time Status
                 _rideController.isMeterOn ? _rideController.getMovementStatus() : 'Ready to Start', 
                 Icons.info
               )),
             ],
           ),
-          // **SHOW WAITING TIME ONLY WHEN THERE'S ACTUAL WAITING TIME**
+          // Waiting Time show
           if (_rideController.isMeterOn && _rideController.waitingSeconds > 0) ...[
             Divider(height: 24, color: Colors.grey[200]),
             Row(
