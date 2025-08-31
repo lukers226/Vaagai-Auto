@@ -17,16 +17,27 @@ class FareService {
     developer.log(message, name: 'FareService', level: 700);
   }
 
+  /// Parse MongoDB Extended JSON format
+  static dynamic _parseExtendedJson(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      if (value.containsKey('\$numberInt')) {
+        return int.parse(value['\$numberInt'].toString());
+      } else if (value.containsKey('\$numberDouble')) {
+        return double.parse(value['\$numberDouble'].toString());
+      } else if (value.containsKey('\$oid')) {
+        return value['\$oid'];
+      } else if (value.containsKey('\$date')) {
+        return value['\$date'];
+      }
+    }
+    return value;
+  }
+
   /// Create or update system-wide fare configuration
   static Future<Map<String, dynamic>> updateOrCreateSystemFare({
     required double baseFare,
-    required double perKmRate, // NEW FIELD
-    required double waiting5min,
-    required double waiting10min,
-    required double waiting15min,
-    required double waiting20min,
-    required double waiting25min,
-    required double waiting30min,
+    required double perKmRate,
+    required double waiting60min,
   }) async {
     try {
       _logInfo('Sending system fare data to server...');
@@ -34,13 +45,8 @@ class FareService {
       
       final requestBody = {
         'baseFare': baseFare,
-        'perKmRate': perKmRate, // NEW FIELD
-        'waiting5min': waiting5min,
-        'waiting10min': waiting10min,
-        'waiting15min': waiting15min,
-        'waiting20min': waiting20min,
-        'waiting25min': waiting25min,
-        'waiting30min': waiting30min,
+        'perKmRate': perKmRate,
+        'waiting60min': waiting60min,
       };
       
       _logDebug('Request body: $requestBody');
@@ -101,12 +107,20 @@ class FareService {
       _logDebug('Get system fare response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final rawData = jsonDecode(response.body);
+        final fareData = rawData['data'] as Map<String, dynamic>;
+        
+        // Parse Extended JSON values
+        final parsedData = <String, dynamic>{};
+        fareData.forEach((key, value) {
+          parsedData[key] = _parseExtendedJson(value);
+        });
+        
         _logInfo('System fare retrieved successfully');
         return {
           'success': true,
-          'message': data['message'] ?? 'System fare retrieved successfully',
-          'data': data['data']
+          'message': rawData['message'] ?? 'System fare retrieved successfully',
+          'data': parsedData
         };
       } else if (response.statusCode == 404) {
         _logInfo('No system fare configuration found');
@@ -276,12 +290,7 @@ class FareService {
   static Map<String, dynamic> validateFareData({
     required double baseFare,
     required double perKmRate,
-    required double waiting5min,
-    required double waiting10min,
-    required double waiting15min,
-    required double waiting20min,
-    required double waiting25min,
-    required double waiting30min,
+    required double waiting60min,
   }) {
     try {
       // Validate base fare
@@ -314,24 +323,19 @@ class FareService {
         };
       }
 
-      // Validate waiting charges
-      final waitingCharges = [waiting5min, waiting10min, waiting15min, waiting20min, waiting25min, waiting30min];
-      final waitingLabels = ['5 minute', '10 minute', '15 minute', '20 minute', '25 minute', '30 minute'];
+      // Validate waiting charge
+      if (waiting60min < 0) {
+        return {
+          'valid': false,
+          'message': '60 minute waiting charge cannot be negative'
+        };
+      }
       
-      for (int i = 0; i < waitingCharges.length; i++) {
-        if (waitingCharges[i] < 0) {
-          return {
-            'valid': false,
-            'message': '${waitingLabels[i]} waiting charge cannot be negative'
-          };
-        }
-        
-        if (waitingCharges[i] > 1000) {
-          return {
-            'valid': false,
-            'message': '${waitingLabels[i]} waiting charge cannot exceed ₹1000'
-          };
-        }
+      if (waiting60min > 1000) {
+        return {
+          'valid': false,
+          'message': '60 minute waiting charge cannot exceed ₹1000'
+        };
       }
 
       return {
@@ -353,26 +357,17 @@ class FareService {
     required double perKmRate,
     required double distance,
     required int waitingMinutes,
-    required Map<String, double> waitingCharges,
+    required double waiting60min,
   }) {
     try {
       // Calculate distance fare
       final distanceFare = distance * perKmRate;
       
-      // Calculate waiting charge based on minutes
+      // Calculate waiting charge - apply waiting60min rate for any waiting time
       double waitingCharge = 0.0;
-      if (waitingMinutes >= 30) {
-        waitingCharge = waitingCharges['waiting30min'] ?? 0.0;
-      } else if (waitingMinutes >= 25) {
-        waitingCharge = waitingCharges['waiting25min'] ?? 0.0;
-      } else if (waitingMinutes >= 20) {
-        waitingCharge = waitingCharges['waiting20min'] ?? 0.0;
-      } else if (waitingMinutes >= 15) {
-        waitingCharge = waitingCharges['waiting15min'] ?? 0.0;
-      } else if (waitingMinutes >= 10) {
-        waitingCharge = waitingCharges['waiting10min'] ?? 0.0;
-      } else if (waitingMinutes >= 5) {
-        waitingCharge = waitingCharges['waiting5min'] ?? 0.0;
+      if (waitingMinutes > 0) {
+        // Apply proportional waiting charge based on 60-minute rate
+        waitingCharge = (waitingMinutes / 60.0) * waiting60min;
       }
 
       final totalFare = baseFare + distanceFare + waitingCharge;
@@ -383,12 +378,12 @@ class FareService {
         'perKmRate': perKmRate,
         'distanceFare': double.parse(distanceFare.toStringAsFixed(2)),
         'waitingMinutes': waitingMinutes,
-        'waitingCharge': waitingCharge,
+        'waitingCharge': double.parse(waitingCharge.toStringAsFixed(2)),
         'totalFare': double.parse(totalFare.toStringAsFixed(2)),
         'breakdown': {
           'baseFare': '₹${baseFare.toStringAsFixed(0)}',
           'distanceFare': '₹${distanceFare.toStringAsFixed(2)} (${distance}km × ₹${perKmRate}/km)',
-          'waitingCharge': '₹${waitingCharge.toStringAsFixed(0)} ($waitingMinutes minutes)',
+          'waitingCharge': '₹${waitingCharge.toStringAsFixed(2)} ($waitingMinutes minutes)',
           'total': '₹${totalFare.toStringAsFixed(2)}'
         }
       };

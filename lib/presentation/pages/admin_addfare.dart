@@ -13,13 +13,8 @@ class AddFarePage extends StatefulWidget {
 
 class AddFarePageState extends State<AddFarePage> {
   final TextEditingController _baseFareController = TextEditingController();
-  final TextEditingController _perKmRateController = TextEditingController(); // NEW FIELD
-  final TextEditingController _waiting5Controller = TextEditingController();
-  final TextEditingController _waiting10Controller = TextEditingController();
-  final TextEditingController _waiting15Controller = TextEditingController();
-  final TextEditingController _waiting20Controller = TextEditingController();
-  final TextEditingController _waiting25Controller = TextEditingController();
-  final TextEditingController _waiting30Controller = TextEditingController();
+  final TextEditingController _perKmRateController = TextEditingController();
+  final TextEditingController _waiting60Controller = TextEditingController();
 
   bool _isLoading = false;
   bool _isUpdating = false;
@@ -53,7 +48,7 @@ class AddFarePageState extends State<AddFarePage> {
     if (value == null) return '';
     double numValue = _safeToDouble(value);
     if (numValue == 0.0) return '';
-    // For perKmRate, show decimal places if needed
+    // Show decimal places if needed
     if (numValue == numValue.toInt()) {
       return numValue.toStringAsFixed(0); // Show whole numbers
     } else {
@@ -85,15 +80,10 @@ class AddFarePageState extends State<AddFarePage> {
         
         // Load values into controllers, empty if 0
         _baseFareController.text = _safeToString(fareData['baseFare']);
-        _perKmRateController.text = _safeToString(fareData['perKmRate']); // NEW FIELD
-        _waiting5Controller.text = _safeToString(fareData['waiting5min']);
-        _waiting10Controller.text = _safeToString(fareData['waiting10min']);
-        _waiting15Controller.text = _safeToString(fareData['waiting15min']);
-        _waiting20Controller.text = _safeToString(fareData['waiting20min']);
-        _waiting25Controller.text = _safeToString(fareData['waiting25min']);
-        _waiting30Controller.text = _safeToString(fareData['waiting30min']);
+        _perKmRateController.text = _safeToString(fareData['perKmRate']);
+        _waiting60Controller.text = _safeToString(fareData['waiting60min']);
         
-        _logInfo('Loaded existing system fare data with perKmRate');
+        _logInfo('Loaded existing system fare data');
       } else {
         if (!mounted) return;
         
@@ -102,13 +92,8 @@ class AddFarePageState extends State<AddFarePage> {
         });
         // Keep all fields empty for first time
         _baseFareController.text = '';
-        _perKmRateController.text = ''; // NEW FIELD
-        _waiting5Controller.text = '';
-        _waiting10Controller.text = '';
-        _waiting15Controller.text = '';
-        _waiting20Controller.text = '';
-        _waiting25Controller.text = '';
-        _waiting30Controller.text = '';
+        _perKmRateController.text = '';
+        _waiting60Controller.text = '';
         
         _logInfo('No existing system fare found, keeping fields empty');
       }
@@ -145,13 +130,8 @@ class AddFarePageState extends State<AddFarePage> {
   @override
   void dispose() {
     _baseFareController.dispose();
-    _perKmRateController.dispose(); // NEW FIELD
-    _waiting5Controller.dispose();
-    _waiting10Controller.dispose();
-    _waiting15Controller.dispose();
-    _waiting20Controller.dispose();
-    _waiting25Controller.dispose();
-    _waiting30Controller.dispose();
+    _perKmRateController.dispose();
+    _waiting60Controller.dispose();
     super.dispose();
   }
 
@@ -237,12 +217,9 @@ class AddFarePageState extends State<AddFarePage> {
                                   color: Colors.white,
                                 ),
                               ),
-                             
                             ],
                           ),
                         ),
-                      
-                         
                       ],
                     ),
                   ),
@@ -302,7 +279,7 @@ class AddFarePageState extends State<AddFarePage> {
                                       keyboardType: TextInputType.number,
                                       inputFormatters: [
                                         FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(4), // Max 4 digits
+                                        LengthLimitingTextInputFormatter(4),
                                       ],
                                       decoration: InputDecoration(
                                         hintText: 'Enter amount',
@@ -323,7 +300,7 @@ class AddFarePageState extends State<AddFarePage> {
                               ),
                             ),
 
-                            // NEW: Per Km Rate Section
+                            // Per Km Rate Section
                             Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.all(16),
@@ -369,8 +346,8 @@ class AddFarePageState extends State<AddFarePage> {
                                       controller: _perKmRateController,
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       inputFormatters: [
-                                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')), // Allow decimals up to 2 places
-                                        LengthLimitingTextInputFormatter(6), // Max 6 characters (e.g., 999.99)
+                                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                                        LengthLimitingTextInputFormatter(6),
                                       ],
                                       decoration: InputDecoration(
                                         hintText: 'Rate per km',
@@ -392,49 +369,121 @@ class AddFarePageState extends State<AddFarePage> {
                               ),
                             ),
 
-                            // Waiting Charges Header
+                            // Waiting Charge Section (60 Minutes Only)
                             Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.only(bottom: 30),
+                              padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Colors.black, Colors.black],
+                                gradient: LinearGradient(
+                                  colors: [Colors.orange[300]!, Colors.orange[400]!],
                                 ),
                                 borderRadius: BorderRadius.circular(15),
+                                border: Border.all(color: Colors.orange[600]!, width: 2),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.grey.withValues(alpha: 0.1),
-                                    spreadRadius: 1,
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
+                                    color: Colors.orange.withValues(alpha: 0.3),
+                                    spreadRadius: 3,
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
                                   ),
                                 ],
                               ),
-                              child: Row(
+                              child: Column(
                                 children: [
-                                  const Icon(Icons.access_time, color: Colors.white, size: 24),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Waiting Charges',
-                                    style: GoogleFonts.lato(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.access_time,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        'Waiting Charge',
+                                        style: GoogleFonts.lato(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.hourglass_full,
+                                              color: Colors.white,
+                                              size: 24,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '60 Minutes',
+                                                  style: GoogleFonts.lato(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Per Hour Rate',
+                                                  style: GoogleFonts.lato(
+                                                    fontSize: 12,
+                                                    color: Colors.white70,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: TextField(
+                                          controller: _waiting60Controller,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.digitsOnly,
+                                            LengthLimitingTextInputFormatter(4),
+                                          ],
+                                          decoration: InputDecoration(
+                                            hintText: 'Enter fare',
+                                            hintStyle: const TextStyle(color: Colors.grey),
+                                            prefixText: '₹ ',
+                                            prefixStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: Colors.white, width: 2),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: Colors.white, width: 2),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: Colors.white, width: 3),
+                                            ),
+                                            filled: true,
+                                            fillColor: Colors.white,
+                                            contentPadding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-
-                            // Waiting Charges List
-                            _buildWaitingChargeItem('5 Minutes', _waiting5Controller),
-                            _buildWaitingChargeItem('10 Minutes', _waiting10Controller),
-                            _buildWaitingChargeItem('15 Minutes', _waiting15Controller),
-                            _buildWaitingChargeItem('20 Minutes', _waiting20Controller),
-                            _buildWaitingChargeItem('25 Minutes', _waiting25Controller),
-                            _buildWaitingChargeItem('30 Minutes', _waiting30Controller),
-
-                            const SizedBox(height: 30),
 
                             // Update Button
                             Container(
@@ -509,73 +558,6 @@ class AddFarePageState extends State<AddFarePage> {
     );
   }
 
-  Widget _buildWaitingChargeItem(String duration, TextEditingController controller) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.yellow,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            spreadRadius: 1,
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Row(
-              children: [
-                Icon(
-                  Icons.timer,
-                  color: Colors.grey[600],
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  duration,
-                  style: GoogleFonts.lato(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(3), // Max 3 digits for waiting charges
-              ],
-              decoration: InputDecoration(
-                hintText: 'Enter fare',
-                prefixText: '₹ ',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _updateSystemFares() async {
     _logInfo('Update system fares button pressed');
     
@@ -608,6 +590,18 @@ class AddFarePageState extends State<AddFarePage> {
       return;
     }
 
+    // Validate 60 minute waiting charge
+    if (_waiting60Controller.text.isEmpty) {
+      _showSnackBar('Please enter 60 minutes waiting charge', Colors.red);
+      return;
+    }
+
+    final waiting60min = double.tryParse(_waiting60Controller.text);
+    if (waiting60min == null || waiting60min < 0) {
+      _showSnackBar('60 minutes waiting charge must be a valid non-negative number', Colors.red);
+      return;
+    }
+
     if (!mounted) return;
 
     setState(() {
@@ -616,26 +610,12 @@ class AddFarePageState extends State<AddFarePage> {
 
     try {
       _logInfo('Attempting to save system fare');
-      
-      // Parse waiting charges, default to 0 if empty
-      final waiting5min = double.tryParse(_waiting5Controller.text.isEmpty ? '0' : _waiting5Controller.text) ?? 0.0;
-      final waiting10min = double.tryParse(_waiting10Controller.text.isEmpty ? '0' : _waiting10Controller.text) ?? 0.0;
-      final waiting15min = double.tryParse(_waiting15Controller.text.isEmpty ? '0' : _waiting15Controller.text) ?? 0.0;
-      final waiting20min = double.tryParse(_waiting20Controller.text.isEmpty ? '0' : _waiting20Controller.text) ?? 0.0;
-      final waiting25min = double.tryParse(_waiting25Controller.text.isEmpty ? '0' : _waiting25Controller.text) ?? 0.0;
-      final waiting30min = double.tryParse(_waiting30Controller.text.isEmpty ? '0' : _waiting30Controller.text) ?? 0.0;
-      
-      _logInfo('System fare data to save: baseFare: $baseFare, perKmRate: $perKmRate, waiting5min: $waiting5min, waiting10min: $waiting10min, waiting15min: $waiting15min, waiting20min: $waiting20min, waiting25min: $waiting25min, waiting30min: $waiting30min');
+      _logInfo('System fare data to save: baseFare: $baseFare, perKmRate: $perKmRate, waiting60min: $waiting60min');
 
       final result = await FareService.updateOrCreateSystemFare(
         baseFare: baseFare,
-        perKmRate: perKmRate, // NEW FIELD
-        waiting5min: waiting5min,
-        waiting10min: waiting10min,
-        waiting15min: waiting15min,
-        waiting20min: waiting20min,
-        waiting25min: waiting25min,
-        waiting30min: waiting30min,
+        perKmRate: perKmRate,
+        waiting60min: waiting60min,
       );
 
       if (!mounted) return;
