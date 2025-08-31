@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
+
 class RideController {
   // Ride metrics
   double distance = 0.0;
@@ -55,16 +56,20 @@ class RideController {
   static const int locationUpdateInterval = 1; // 1 second updates
   static const int stationaryDelaySeconds = 3; // Start waiting after 3 seconds (faster)
 
+
   // Location permission and service status
   bool isLocationServiceEnabled = false;
   bool hasLocationPermission = false;
+
 
   // Callbacks
   VoidCallback? onLocationUpdate;
   VoidCallback? onStatusChange;
   Function(String, bool)? onShowSnackBar;
 
+
   double get totalFare => currentFare;
+
 
   void setFareDataFromDB(Map<String, dynamic> data) {
     debugPrint('Setting fare data from database: $data');
@@ -82,6 +87,7 @@ class RideController {
     
     onStatusChange?.call();
   }
+
 
   double _extractNumericValue(dynamic value, double defaultValue) {
     debugPrint('Extracting numeric value from: $value (type: ${value.runtimeType})');
@@ -157,6 +163,7 @@ class RideController {
     return defaultValue;
   }
 
+
   void initialize({
     VoidCallback? onLocationUpdate,
     VoidCallback? onStatusChange,
@@ -170,6 +177,7 @@ class RideController {
     _startGpsMonitoring();
     _setupMotionSensors();
   }
+
 
   // **ENHANCED: Motion sensor setup for walking detection**  
   void _setupMotionSensors() {
@@ -201,6 +209,7 @@ class RideController {
     debugPrint('✅ Motion sensors initialized with threshold: $accelerometerThreshold');
   }
 
+
   // **ENHANCED: Handle movement detection from any source**
   void _handleMovementDetected(String source) {
     if (!isVehicleMoving) {
@@ -212,6 +221,7 @@ class RideController {
     }
   }
 
+
   void dispose() {
     meterTimer?.cancel();
     locationTimer?.cancel();
@@ -222,11 +232,13 @@ class RideController {
     accelerometerSubscription?.cancel();
   }
 
+
   void _startGpsMonitoring() {
     gpsMonitorTimer = Timer.periodic(Duration(seconds: 3), (timer) async {
       await _monitorGpsStatus();
     });
   }
+
 
   Future<void> _monitorGpsStatus() async {
     try {
@@ -259,6 +271,7 @@ class RideController {
     }
   }
 
+
   Future<void> _checkLocationStatus() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -277,11 +290,13 @@ class RideController {
     }
   }
 
+
   Future<bool> requestLocationPermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return false;
     }
+
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -292,9 +307,11 @@ class RideController {
       }
     }
 
+
     if (permission == LocationPermission.deniedForever) {
       return false;
     }
+
 
     isLocationServiceEnabled = true;
     hasLocationPermission = true;
@@ -303,13 +320,16 @@ class RideController {
     return true;
   }
 
+
   Future<bool> startRide() async {
     bool hasPermission = await requestLocationPermission();
     if (!hasPermission) return false;
 
+
     isMeterOn = true;
     isRidePaused = false;
-    currentFare = 0.0;
+    // **MODIFIED: Set base fare immediately when ride starts**
+    currentFare = baseFareFromDB;
     distance = 0.0;
     waitingSeconds = 0;
     totalWaitingFare = 0.0;
@@ -324,9 +344,11 @@ class RideController {
     _startFareUpdateTimer();
     _startStationaryTimer();
     
+    debugPrint('🚗 Ride started with immediate base fare: ₹${currentFare.toStringAsFixed(2)}');
     onStatusChange?.call();
     return true;
   }
+
 
   void _startStationaryTimer() {
     stationaryTimer?.cancel();
@@ -364,6 +386,7 @@ class RideController {
     });
   }
 
+
   void endRide() {
     isMeterOn = false;
     isRidePaused = false;
@@ -371,6 +394,7 @@ class RideController {
     _stopAllTimers();
     onStatusChange?.call();
   }
+
 
   void resetMeter() {
     distance = 0.0;
@@ -393,6 +417,7 @@ class RideController {
     onStatusChange?.call();
   }
 
+
   void _stopAllTimers() {
     stationaryTimer?.cancel();
     stationaryTimer = null;
@@ -401,6 +426,7 @@ class RideController {
     fareUpdateTimer?.cancel();
     debugPrint('🛑 All timers stopped');
   }
+
 
   void _startFareUpdateTimer() {
     fareUpdateTimer?.cancel();
@@ -411,6 +437,7 @@ class RideController {
       onStatusChange?.call();
     });
   }
+
 
   void _startMeter() {
     meterTimer?.cancel();
@@ -425,13 +452,16 @@ class RideController {
       onStatusChange?.call();
     });
 
+
     locationTimer = Timer.periodic(Duration(seconds: locationUpdateInterval), (timer) async {
       if (!isMeterOn || isRidePaused) return;
       await _updateLocation();
     });
 
+
     _getCurrentLocation();
   }
+
 
   Future<void> _getCurrentLocation() async {
     try {
@@ -448,6 +478,7 @@ class RideController {
     }
   }
 
+
   Future<void> _updateLocation() async {
     try {
       Position newPosition = await Geolocator.getCurrentPosition(
@@ -455,11 +486,13 @@ class RideController {
         timeLimit: Duration(seconds: 5),
       );
 
+
       // **Accept wider range of accuracy**
       if (newPosition.accuracy > 100) {
         debugPrint('⚠️ Very poor GPS accuracy (${newPosition.accuracy}m), ignoring');
         return;
       }
+
 
       if (lastPosition != null) {
         double distanceInMeters = Geolocator.distanceBetween(
@@ -469,7 +502,9 @@ class RideController {
           newPosition.longitude,
         );
 
+
         debugPrint('📍 GPS: Distance=${distanceInMeters.toStringAsFixed(1)}m, Accuracy=${newPosition.accuracy.toStringAsFixed(1)}m, Motion=${isMotionDetected}');
+
 
         // **GPS-based movement detection**
         if (distanceInMeters >= walkingThreshold) {
@@ -488,18 +523,22 @@ class RideController {
           secondsSinceLastMovement = 0;
         }
 
+
         lastPosition = newPosition;
       } else {
         lastPosition = newPosition;
       }
 
+
       currentPosition = newPosition;
       onLocationUpdate?.call();
+
 
     } catch (e) {
       debugPrint('❌ Location update error: $e');
     }
   }
+
 
   void _startWaitingCharges() {
     if (waitingTimer != null) return; // Already running
@@ -539,6 +578,7 @@ class RideController {
     });
   }
 
+
   void _stopWaitingCharges() {
     if (waitingTimer != null) {
       debugPrint('🛑 STOPPING waiting charges');
@@ -548,44 +588,45 @@ class RideController {
     }
   }
 
+
   void _calculateCurrentFare() {
-    double baseFareComponent = 0.0;
+    // **MODIFIED: Base fare is already set when ride starts, only add extra distance and waiting charges**
     double extraDistanceFare = 0.0;
     
-    if (distance <= 1.0) {
-      baseFareComponent = distance * baseFareFromDB;
-      extraDistanceFare = 0.0;
-    } else {
-      baseFareComponent = baseFareFromDB;
+    if (distance > 1.0) {
       double extraDistance = distance - 1.0;
       extraDistanceFare = extraDistance * perKmRateFromDB;
     }
     
-    currentFare = baseFareComponent + extraDistanceFare + totalWaitingFare;
+    currentFare = baseFareFromDB + extraDistanceFare + totalWaitingFare;
     
-    // **Ensure minimum fare**
-    if (currentFare < 1.0) {
-      currentFare = 1.0;
+    // **Ensure minimum fare (base fare)**
+    if (currentFare < baseFareFromDB) {
+      currentFare = baseFareFromDB;
     }
     
-    debugPrint('💰 FARE: Base=₹${baseFareComponent.toStringAsFixed(2)}, Extra=₹${extraDistanceFare.toStringAsFixed(2)}, Waiting=₹${totalWaitingFare.toStringAsFixed(2)}, Total=₹${currentFare.toStringAsFixed(2)}');
+    debugPrint('💰 FARE: Base=₹${baseFareFromDB.toStringAsFixed(2)}, Extra=₹${extraDistanceFare.toStringAsFixed(2)}, Waiting=₹${totalWaitingFare.toStringAsFixed(2)}, Total=₹${currentFare.toStringAsFixed(2)}');
   }
+
 
   String getTripStartTime() {
     if (tripStartTime == null) return '--:--';
     return '${tripStartTime!.hour.toString().padLeft(2, '0')}:${tripStartTime!.minute.toString().padLeft(2, '0')}';
   }
 
+
   String getTripEndTime() {
     if (tripEndTime == null) return '--:--';
     return '${tripEndTime!.hour.toString().padLeft(2, '0')}:${tripEndTime!.minute.toString().padLeft(2, '0')}';
   }
+
 
   String getWaitingTimeDisplay() {
     int minutes = waitingSeconds ~/ 60;
     int seconds = waitingSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+
 
   String formatDistance() => distance.toStringAsFixed(2);
   
@@ -594,6 +635,7 @@ class RideController {
     int seconds = secondsPassed % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+
 
   String getMovementStatus() {
     if (!isMeterOn) return 'Ready to Start';
@@ -605,6 +647,7 @@ class RideController {
     }
     return 'Stopped';
   }
+
 
   Color getStatusColor() {
     if (!isMeterOn) return Color(0xFF9CA3AF);
